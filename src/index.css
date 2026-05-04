@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-brand-primary: #00843D; /* UniCordoba Green */
+  --color-brand-secondary: #FFD100; /* UniCordoba Yellow/Gold */
+  --color-brand-dark: #004d24;
+}
+
+@layer base {
+  body {
+    @apply bg-[#f8faf9] text-slate-900 font-sans antialiased selection:bg-brand-primary/20;
+  }
+}
+
+.glass {
+  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
+}
+
+.glass-dark {
+  @apply bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 shadow-2xl;
+}
+
+.btn-primary {
+  @apply relative overflow-hidden bg-brand-primary text-white px-6 py-2.5 rounded-xl font-semibold transition-all hover:bg-brand-dark hover:shadow-lg hover:shadow-brand-primary/20 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+}
+
+.btn-secondary {
+  @apply bg-white border border-slate-200 text-slate-700 px-6 py-2.5 rounded-xl font-semibold transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-95 shadow-sm;
+}
+
+.card {
+  @apply bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300;
+}
+
+.badge-green {
+  @apply bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider;
+}
+
+.badge-gold {
+  @apply bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider;
+}
+
+.grad-unicordoba {
+  @apply bg-gradient-to-r from-brand-primary to-brand-dark;
+}
