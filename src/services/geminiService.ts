@@ -47,7 +47,19 @@ export async function runAITool(toolId: string, input: any): Promise<string> {
 }
 
 export async function generateExamQuestions(params: ExamParams): Promise<Question[]> {
-  const { topic, difficulty, numQuestions, course, semester, questionTypes } = params;
+  const { topic, difficulty, numQuestions, course, semester, questionTypes, distribution } = params;
+
+  let distributionText = "";
+  if (distribution) {
+    distributionText = `Distribución por tipo:
+    - Opción Múltiple: ${distribution.multiple_choice}
+    - Abierta/Respuesta Corta: ${distribution.open_question}
+    - Estudio de Caso: ${distribution.case_study}
+    - Taller/Ejercicio: ${distribution.workshop}
+    - Verdadero o Falso: ${distribution.true_false}`;
+  } else {
+    distributionText = `Formatos soportados: ${questionTypes.join(', ')}.`;
+  }
 
   const systemInstruction = `
     Eres un agente inteligente de apoyo a la evaluación educativa en Educación Superior, enfocado en la Licenciatura en Informática de la Universidad de Córdoba, Colombia.
@@ -61,14 +73,17 @@ export async function generateExamQuestions(params: ExamParams): Promise<Questio
     5. Justificar la dificultad de la pregunta.
     6. Evaluar criterios de calidad internamente: Claridad, Coherencia, Pertinencia.
     7. Incluir una "Recomendación para el docente".
+    8. Toda la respuesta debe estar estrictamente en español (Español Neutro). Evita términos técnicos en inglés a menos que sea estrictamente necesario para el tema (ej. nombres de lenguajes de programación o protocolos específicos).
 
     Contexto del Curso:
-    - Asignatura: ${course}
+    - Curso: ${course}
     - Semestre: ${semester}
     - Tema: ${topic}
     - Nivel solicitado: ${difficulty}
 
-    Formatos soportados: ${questionTypes.join(', ')}.
+    ${distributionText}
+    
+    IMPORTANTE: Genera EXACTAMENTE ${numQuestions} preguntas en total, respetando la distribución si fue proporcionada. El contenido debe ser académico, claro y preciso.
   `;
 
   const response = await ai.models.generateContent({

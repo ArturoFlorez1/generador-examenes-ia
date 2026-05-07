@@ -57,18 +57,18 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
 
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-black text-brand-primary uppercase tracking-widest bg-brand-primary/10 px-2 py-0.5 rounded-md">VET-EVAL SYSTEM</span>
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded-md">Draft Mode</span>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-black text-brand-primary uppercase tracking-widest bg-brand-primary/10 px-2 py-0.5 rounded-md">VET-EVAL SYSTEM</span>
+                <span className="text-[10px] font-black text-slate-400 tracking-widest bg-slate-100 px-2 py-0.5 rounded-md italic">Borrador</span>
+              </div>
+              <input 
+                type="text" 
+                className="text-3xl font-black text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-brand-primary outline-none px-1 transition-all tracking-tighter"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+              />
             </div>
-            <input 
-              type="text" 
-              className="text-3xl font-black text-slate-900 bg-transparent border-b-2 border-transparent hover:border-slate-200 focus:border-brand-primary outline-none px-1 transition-all uppercase tracking-tighter"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-            />
-          </div>
         </div>
         <button 
           onClick={handleSave}
@@ -99,9 +99,9 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                       {index + 1}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] font-black bg-brand-primary/5 text-brand-primary px-3 py-1.5 rounded-xl border border-brand-primary/20 uppercase tracking-widest">{q.type.replace('_', ' ')}</span>
-                      <span className="text-[10px] font-black bg-slate-900 text-white px-3 py-1.5 rounded-xl uppercase tracking-widest">BLOOM: {q.bloomLevel}</span>
-                      <span className={`text-[10px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest border ${
+                      <span className="text-[10px] font-black bg-brand-primary/5 text-brand-primary px-3 py-1.5 rounded-xl border border-brand-primary/20 tracking-widest capitalize">{q.type.replace('_', ' ')}</span>
+                      <span className="text-[10px] font-black bg-brand-primary text-white px-3 py-1.5 rounded-xl tracking-widest">Bloom: {q.bloomLevel}</span>
+                      <span className={`text-[10px] font-black px-3 py-1.5 rounded-xl tracking-widest border ${
                         q.difficulty === 'alto' ? 'bg-red-50 text-red-600 border-red-100' : 
                         q.difficulty === 'medio' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
                       }`}>Dificultad: {q.difficulty}</span>

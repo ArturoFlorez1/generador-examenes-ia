@@ -10,7 +10,7 @@ import {
   Plus
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { ExamParams, QuestionType } from '../types';
+import { ExamParams, QuestionType, QuestionDistribution } from '../types';
 
 interface ExamCreatorProps {
   onBack: () => void;
@@ -21,21 +21,39 @@ interface ExamCreatorProps {
 export const ExamCreator: React.FC<ExamCreatorProps> = ({ onBack, onGenerate, isGenerating }) => {
   const [params, setParams] = useState<ExamParams>({
     topic: '',
-    course: 'Programación I',
-    semester: '1-2026',
+    course: 'Fundamentos de programación',
+    semester: '2026-1',
     difficulty: 'medio',
     numQuestions: 5,
-    questionTypes: ['multiple_choice']
+    questionTypes: ['multiple_choice'],
+    distribution: {
+      multiple_choice: 5,
+      open_question: 0,
+      case_study: 0,
+      workshop: 0,
+      true_false: 0
+    }
   });
 
-  const toggleType = (type: QuestionType) => {
-    setParams(prev => ({
-      ...prev,
-      questionTypes: prev.questionTypes.includes(type)
-        ? prev.questionTypes.filter(t => t !== type)
-        : [...prev.questionTypes, type]
-    }));
+  const updateDistribution = (type: keyof QuestionDistribution, value: number) => {
+    const newCount = Math.max(0, value);
+    setParams(prev => {
+      const newDistribution = { ...prev.distribution!, [type]: newCount };
+      const totalInDist = Object.values(newDistribution).reduce((a, b) => a + b, 0);
+      
+      return {
+        ...prev,
+        distribution: newDistribution,
+        // Optional: keep numQuestions in sync or just use it as a cap
+        // In this case, I'll keep the actual total questions as the sum of distribution if the user wants flexibility
+        // but the prompt said "obviamente que no superen el numero que ya se estableció antes"
+      };
+    });
   };
+
+  const totalDistributed = params.distribution ? Object.values(params.distribution).reduce((a, b) => a + b, 0) : 0;
+  const isOverLimit = totalDistributed > params.numQuestions;
+  const isUnderLimit = totalDistributed < params.numQuestions;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,10 +72,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onBack, onGenerate, is
           <ArrowLeft size={24} />
         </button>
         <div>
-          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">
-            Configuración del <span className="text-brand-primary">Instrumento</span>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tighter">
+            Generador de <span className="text-brand-primary">exámenes</span>
           </h1>
-          <p className="text-slate-500 font-medium">Asistente de Inteligencia Artificial para Evaluación por Evidencias.</p>
+          <p className="text-slate-500 font-medium">Diseña instrumentos de evaluación basados en evidencias.</p>
         </div>
       </div>
 
@@ -67,22 +85,24 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onBack, onGenerate, is
           <div className="card p-8 space-y-6 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Asignatura</label>
+                <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase">Curso</label>
                 <select
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/5 transition-all text-lg font-bold appearance-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/5 transition-all text-sm font-bold appearance-none"
                   value={params.course}
                   onChange={e => setParams({...params, course: e.target.value})}
                 >
-                  <option>Programación I</option>
-                  <option>Programación II</option>
-                  <option>Informática Educativa</option>
-                  <option>Base de Datos</option>
-                  <option>Arquitectura de Software</option>
+                  <option>Fundamentos de algoritmia</option>
+                  <option>Fundamentos de programación</option>
+                  <option>Tecnicas avanzadas de programación</option>
+                  <option>Redes de computadores</option>
+                  <option>Diseño y desarrollo de software educativo 1</option>
+                  <option>Diseño y desarrollo de software educativo 2</option>
+                  <option>Diseño y desarrollo de software educativo 3</option>
                 </select>
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Tema del Examen</label>
+                <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase">Tema del examen</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-4 flex items-center text-slate-400 pointer-events-none">
                     <BrainCircuit size={20} />
@@ -101,20 +121,31 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onBack, onGenerate, is
 
             <div className="pt-6 border-t border-slate-100 grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Semestre</label>
-                <input
-                  type="text"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-primary transition-all font-bold text-slate-700"
+                <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Semestre</label>
+                <select
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-primary transition-all font-bold text-slate-700 appearance-none"
                   value={params.semester}
                   onChange={e => setParams({...params, semester: e.target.value})}
-                />
+                >
+                  <option>2026-1</option>
+                  <option>2026-2</option>
+                  <option>2025-1</option>
+                  <option>2025-2</option>
+                </select>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Items</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Número de preguntas</label>
                 <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
                   <button type="button" onClick={() => setParams(p => ({...p, numQuestions: Math.max(1, p.numQuestions - 1)}))} className="w-10 h-full hover:bg-slate-200 font-bold">-</button>
-                  <span className="flex-1 text-center font-bold">{params.numQuestions}</span>
-                  <button type="button" onClick={() => setParams(p => ({...p, numQuestions: Math.min(20, p.numQuestions + 1)}))} className="w-10 h-full hover:bg-slate-200 font-bold">+</button>
+                  <input 
+                    type="number"
+                    min="1"
+                    max="50"
+                    className="flex-1 bg-transparent text-center font-bold outline-none border-none py-2"
+                    value={params.numQuestions}
+                    onChange={e => setParams(p => ({...p, numQuestions: parseInt(e.target.value) || 1}))}
+                  />
+                  <button type="button" onClick={() => setParams(p => ({...p, numQuestions: Math.min(50, p.numQuestions + 1)}))} className="w-10 h-full hover:bg-slate-200 font-bold">+</button>
                 </div>
               </div>
             </div>
@@ -123,58 +154,78 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onBack, onGenerate, is
           {/* Difficulty & Types */}
           <div className="card p-8 space-y-8">
             <div className="space-y-4">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Nivel de Dificultad</label>
-              <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-                {(['bajo', 'medio', 'alto'] as const).map(d => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setParams({...params, difficulty: d})}
-                    className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                      params.difficulty === d 
-                        ? 'bg-white shadow-lg text-brand-primary' 
-                        : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    <span>{d}</span>
-                  </button>
-                ))}
-              </div>
+                <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Dificultad</label>
+                <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                  {(['bajo', 'medio', 'alto'] as const).map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setParams({...params, difficulty: d})}
+                      className={`flex-1 py-3 rounded-xl text-xs font-black capitalize tracking-tight transition-all ${
+                        params.difficulty === d 
+                          ? 'bg-white shadow-lg text-brand-primary' 
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      <span>{d}</span>
+                    </button>
+                  ))}
+                </div>
             </div>
 
             <div className="space-y-4">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Tipos de Ítem Requeridos</label>
-              <div className="grid grid-cols-2 gap-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Tipos de preguntas requeridas</label>
+              <div className="space-y-3">
                 {[
                   { id: 'multiple_choice', label: 'Opción Múltiple' },
-                  { id: 'open_question', label: 'Abierta' },
+                  { id: 'open_question', label: 'Abierta / Respuesta Corta' },
                   { id: 'case_study', label: 'Estudio de Caso' },
                   { id: 'workshop', label: 'Taller / Ejercicio' },
                   { id: 'true_false', label: 'Verdadero o Falso' }
                 ].map(type => (
-                  <button
-                    key={type.id}
-                    type="button"
-                    onClick={() => toggleType(type.id as QuestionType)}
-                    className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 ${
-                      params.questionTypes.includes(type.id as QuestionType)
-                        ? 'border-brand-primary bg-brand-primary/5 text-brand-primary shadow-sm' 
-                        : 'border-slate-100 hover:border-slate-200 text-slate-400'
-                    }`}
-                  >
-                    <div className={`w-2 h-2 rounded-full ${params.questionTypes.includes(type.id as QuestionType) ? 'bg-brand-primary animate-pulse' : 'bg-slate-200'}`} />
-                    <span className="text-[10px] font-black uppercase tracking-tight">{type.label}</span>
-                  </button>
+                  <div key={type.id} className="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <span className="text-[10px] font-black uppercase tracking-tight text-slate-600">{type.label}</span>
+                    <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-8">
+                      <button 
+                        type="button" 
+                        onClick={() => updateDistribution(type.id as keyof QuestionDistribution, (params.distribution?.[type.id as keyof QuestionDistribution] || 0) - 1)}
+                        className="px-2 hover:bg-slate-100 font-bold text-xs"
+                      >-</button>
+                      <input 
+                        type="number"
+                        className="w-10 text-center text-xs font-bold outline-none border-none"
+                        value={params.distribution?.[type.id as keyof QuestionDistribution] || 0}
+                        onChange={e => updateDistribution(type.id as keyof QuestionDistribution, parseInt(e.target.value) || 0)}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => updateDistribution(type.id as keyof QuestionDistribution, (params.distribution?.[type.id as keyof QuestionDistribution] || 0) + 1)}
+                        className="px-2 hover:bg-slate-100 font-bold text-xs"
+                      >+</button>
+                    </div>
+                  </div>
                 ))}
               </div>
+              {isOverLimit && (
+                <div className="flex items-center gap-2 text-rose-500 bg-rose-50 p-3 rounded-xl border border-rose-100">
+                  <AlertCircle size={16} />
+                  <p className="text-[10px] font-bold">La suma ({totalDistributed}) supera el total de preguntas ({params.numQuestions})</p>
+                </div>
+              )}
+              {isUnderLimit && totalDistributed > 0 && (
+                <div className="flex items-center gap-2 text-amber-500 bg-amber-50 p-3 rounded-xl border border-amber-100">
+                  <AlertCircle size={16} />
+                  <p className="text-[10px] font-bold">Distribución incompleta: faltan {params.numQuestions - totalDistributed} preguntas</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         <button 
           type="submit"
-          disabled={isGenerating || !params.topic || params.questionTypes.length === 0}
-          className="btn-primary w-full py-6 text-xl flex items-center justify-center gap-3 group relative overflow-hidden shadow-2xl shadow-brand-primary/30"
+          disabled={isGenerating || !params.topic || totalDistributed === 0 || isOverLimit}
+          className="btn-primary w-full py-6 text-xl flex items-center justify-center gap-3 group relative overflow-hidden shadow-2xl shadow-brand-primary/30 disabled:grayscale disabled:opacity-50"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
           {isGenerating ? (

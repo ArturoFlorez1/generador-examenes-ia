@@ -239,12 +239,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ exams, role, onCreateNew, 
                     </div>
                     <div>
                       <h3 className="font-bold text-xl text-slate-900 group-hover:text-brand-primary transition-colors">{exam.title}</h3>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1 font-semibold uppercase tracking-wider">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded">{exam.course}</span>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1 font-semibold tracking-wider">
+                        <span className="bg-slate-100 px-2 py-0.5 rounded italic">{exam.course}</span>
                         <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                         <span className="bg-slate-100 px-2 py-0.5 rounded">{exam.semester}</span>
                         <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                        <span className={`px-2 py-0.5 rounded ${
+                        <span className={`px-2 py-0.5 rounded capitalize ${
                           exam.difficulty === 'alto' ? 'bg-red-50 text-red-600' : 
                           exam.difficulty === 'medio' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
                         }`}>{exam.difficulty}</span>
@@ -308,7 +308,7 @@ const StatsCard: React.FC<{ icon: React.ReactNode; label: string; value: string 
       {trend && <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{trend}</span>}
     </div>
     <div>
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</p>
+      <p className="text-xs font-bold text-slate-400 tracking-wider capitalize">{label}</p>
       <p className="text-3xl font-extrabold text-slate-900 mt-1">{value}</p>
     </div>
   </div>

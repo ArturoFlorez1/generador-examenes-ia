@@ -84,18 +84,18 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
             </p>
           </div>
           
-          <div className="bg-slate-50 p-8 rounded-2xl border border-slate-100">
-            <div className="text-5xl font-black text-slate-900 mb-2">{score}%</div>
-            <div className="text-sm font-medium text-slate-500 uppercase tracking-widest">Puntaje Final</div>
-          </div>
+            <div className="bg-slate-50 p-8 rounded-2xl border border-slate-100">
+              <div className="text-5xl font-black text-slate-900 mb-2">{score}%</div>
+              <div className="text-sm font-medium text-slate-500 tracking-widest">Puntaje final</div>
+            </div>
 
           <div className="grid grid-cols-2 gap-4 text-left">
             <div className="card p-4 bg-emerald-50 border-emerald-100">
-              <p className="text-xs font-bold text-emerald-600 uppercase">Aciertos</p>
+              <p className="text-xs font-bold text-emerald-600">Aciertos</p>
               <p className="text-xl font-bold text-emerald-700">{Math.round((score / 100) * exam.questions.length)} / {exam.questions.length}</p>
             </div>
             <div className="card p-4 bg-slate-50">
-              <p className="text-xs font-bold text-slate-500 uppercase">Estado</p>
+              <p className="text-xs font-bold text-slate-500">Estado</p>
               <p className="text-xl font-bold text-slate-700">{score >= 60 ? 'Aprobado' : 'Reprobado'}</p>
             </div>
           </div>
@@ -129,16 +129,16 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
                     ) : null}
 
                     <div className="mt-4 p-3 bg-slate-50 rounded-lg text-xs italic text-slate-500 border border-slate-100">
-                      <div className="flex items-center gap-1 mb-1 text-brand-primary font-bold uppercase">
+                      <div className="flex items-center gap-1 mb-1 text-brand-primary font-bold">
                         <BrainCircuit size={12} />
-                        Justificación Pedagógica:
+                        Justificación pedagógica:
                       </div>
                       {question.justification}
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Bloom: {question.bloomLevel}</div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase text-right">Dificultad: {question.difficulty}</div>
+                      <div className="text-[10px] text-brand-primary font-bold">Bloom: {question.bloomLevel}</div>
+                      <div className="text-[10px] text-brand-primary font-bold text-right">Dificultad: {question.difficulty}</div>
                     </div>
                   </div>
                 </div>
@@ -197,7 +197,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
           className="card p-8 md:p-12 space-y-8"
         >
           <div className="space-y-4">
-            <span className="text-[10px] uppercase font-black tracking-widest text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full">
+            <span className="text-[10px] font-black tracking-widest text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full capitalize">
               {q.type.replace('_', ' ')}
             </span>
             <h2 className="text-2xl font-bold text-slate-900 leading-tight">
@@ -210,21 +210,21 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
               <button
                 key={idx}
                 onClick={() => handleSelect(option)}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all flex items-center justify-between group ${
+                className={`w-full text-left p-5 rounded-xl border-2 transition-all flex items-start justify-between group gap-4 ${
                   answers[q.id] === option 
                     ? 'border-brand-primary bg-brand-primary/5 text-slate-900 shadow-md' 
                     : 'border-slate-100 hover:border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-lg border flex items-center justify-center font-bold text-sm ${
+                <div className="flex items-start gap-4 flex-1">
+                  <div className={`w-10 h-10 shrink-0 rounded-lg border flex items-center justify-center font-bold text-sm ${
                     answers[q.id] === option ? 'bg-brand-primary text-white border-brand-primary' : 'bg-white text-slate-400 border-slate-200'
                   }`}>
                     {String.fromCharCode(65 + idx)}
                   </div>
-                  <span className="font-medium">{option}</span>
+                  <span className="font-medium pt-2 leading-snug">{option}</span>
                 </div>
-                {answers[q.id] === option && <CheckCircle2 className="text-brand-primary" size={24} />}
+                {answers[q.id] === option && <CheckCircle2 className="text-brand-primary shrink-0 mt-3" size={24} />}
               </button>
             ))}
 

@@ -95,13 +95,13 @@ export const AdminPanel: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-100 pb-10">
         <div>
-          <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-tight">
-            Consola de <span className="text-brand-primary">Administración</span>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-tight">
+            Consola de <span className="text-brand-primary">administración</span>
           </h1>
           <p className="text-slate-500 font-medium mt-2">Monitoreo de actividad y gestión de la Licenciatura en Informática.</p>
         </div>
-        <div className="bg-slate-900 text-white px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 shadow-lg shadow-slate-900/20">
-          <ShieldCheck size={16} /> Panel Maestro
+        <div className="bg-slate-900 text-white px-6 py-2 rounded-2xl text-[10px] font-black tracking-widest flex items-center gap-3 shadow-lg shadow-slate-900/20">
+          <ShieldCheck size={16} /> Panel maestro
         </div>
       </div>
 
@@ -221,7 +221,7 @@ export const AdminPanel: React.FC = () => {
           <div className="bg-slate-900 text-white p-8 rounded-[40px] shadow-2xl shadow-slate-900/30 space-y-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="relative">
-              <h3 className="text-xl font-black uppercase tracking-tight">Estado Docente</h3>
+              <h3 className="text-xl font-black tracking-tight">Estado docente</h3>
               <p className="text-xs text-white/60 font-medium mt-1">Usuarios esperando aprobación para modo diseño.</p>
             </div>
             

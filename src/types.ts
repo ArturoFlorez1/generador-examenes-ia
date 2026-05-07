@@ -38,6 +38,14 @@ export interface Exam {
   createdAt: number;
 }
 
+export interface QuestionDistribution {
+  multiple_choice: number;
+  open_question: number;
+  case_study: number;
+  workshop: number;
+  true_false: number;
+}
+
 export interface ExamParams {
   topic: string;
   difficulty: 'bajo' | 'medio' | 'alto';
@@ -45,4 +53,5 @@ export interface ExamParams {
   course: string;
   semester: string;
   questionTypes: QuestionType[];
+  distribution?: QuestionDistribution;
 }
