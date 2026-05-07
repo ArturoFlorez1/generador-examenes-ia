@@ -1,24 +1,6 @@
 import React, { useState } from 'react';
 import { 
   Sparkles, 
-  Settings2, 
-  ArrowLeft, 
-  CheckCircle2,
-  AlertCircle,
-  Loader2
-} from 'lucide-react';
-import { motion } from 'motion/react';
-import { ExamParams, QuestionType } from '../types';
-
-interface ExamCreatorProps {
-  onBack: () => void;
-  onGenerate: (params: ExamParams) => Promise<void>;
-  isGenerating: boolean;
-}
-
-import React, { useState } from 'react';
-import { 
-  Sparkles, 
   ArrowLeft, 
   CheckCircle2,
   AlertCircle,

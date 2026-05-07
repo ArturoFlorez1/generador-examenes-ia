@@ -17,7 +17,7 @@ import { jsPDF } from 'jspdf';
 
 interface DashboardProps {
   exams: Exam[];
-  role: 'teacher' | 'student';
+  role: 'teacher' | 'student' | 'admin';
   onCreateNew: () => void;
   onViewExam: (exam: Exam) => void;
   onDeleteExam: (id: string) => void;
@@ -154,7 +154,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ exams, role, onCreateNew, 
           <p className="text-slate-500 font-medium">Repositorio institucional de exámenes basados en evidencias.</p>
         </div>
         
-        {role === 'teacher' && (
+        {role !== 'student' && (
           <button 
             onClick={onCreateNew}
             className="btn-primary group flex items-center gap-2 self-start"
@@ -211,12 +211,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ exams, role, onCreateNew, 
               <h3 className="text-lg font-medium text-slate-900">No hay exámenes aún</h3>
               <p className="text-slate-500 text-sm">Comienza generando tu primer examen basado en evidencias para tu curso.</p>
             </div>
-            <button 
-              onClick={onCreateNew}
-              className="btn-secondary"
-            >
-              Generar ahora
-            </button>
+            {role !== 'student' && (
+              <button 
+                onClick={onCreateNew}
+                className="btn-secondary"
+              >
+                Generar ahora
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
@@ -250,7 +252,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ exams, role, onCreateNew, 
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {role === 'teacher' && (
+                    {role !== 'student' && (
                       <>
                         <button 
                           onClick={(e) => {

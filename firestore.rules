@@ -1,0 +1,133 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Role helpers
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.get('email', '').lower() == 'florezarturo1816@gmail.com') || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isTeacher() {
+      return isSignedIn() && (getUserData(request.auth.uid).role == 'teacher' || isAdmin());
+    }
+
+    // Phase 4: Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) 
+        && data.keys().size() >= 4
+        && data.uid is string && data.uid.size() <= 128
+        && data.email is string && data.email.size() <= 256
+        && data.role in ['student', 'teacher', 'admin']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidRoleAction(incoming, existing) {
+      // Normal users can only request roles, not set them
+      return (
+        incoming.role == existing.role || isAdmin()
+      ) && (
+        // Any user can update their request status to pending
+        incoming.diff(existing).affectedKeys().hasOnly(['roleRequest', 'updatedAt']) ||
+        isAdmin()
+      );
+    }
+
+    function isValidQuestion(q) {
+      return q.id is string && q.id.size() <= 128
+        && q.type is string && q.type.size() <= 64
+        && q.prompt is string && q.prompt.size() <= 5000
+        && q.correctAnswer is string && q.correctAnswer.size() <= 2000
+        && q.bloomLevel is string && q.bloomLevel.size() <= 64
+        && q.difficulty in ['bajo', 'medio', 'alto'];
+    }
+
+    function isValidExam(data) {
+      return data.keys().hasAll(['id', 'title', 'topic', 'course', 'creatorId', 'createdAt'])
+        && data.keys().size() >= 6
+        && data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 512
+        && data.topic is string && data.topic.size() <= 512
+        && data.course is string && data.course.size() <= 512
+        && data.creatorId == request.auth.uid
+        && data.createdAt is timestamp
+        // Array Guard: Max 50 questions to prevent resource exhaustion
+        && (!('questions' in data) || (data.questions is list && data.questions.size() <= 50 && (data.questions.size() == 0 || isValidQuestion(data.questions[0]))));
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().uid == userId && incoming().uid == request.auth.uid && incoming().createdAt == request.time && incoming().role == 'student';
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming()) 
+        && incoming().uid == userId
+        && (isAdmin() || incoming().uid == request.auth.uid)
+        && isValidRoleAction(incoming(), existing());
+    }
+
+    // 2. Exams Collection
+    match /exams/{examId} {
+      allow get: if isSignedIn() && isValidId(examId);
+      // Secure List Query: allow admins or owners
+      allow list: if isAdmin() || (isSignedIn() && resource.data.creatorId == request.auth.uid); 
+
+      allow create: if isSignedIn() && isValidId(examId) && isValidExam(incoming()) && incoming().createdAt == request.time;
+      
+      allow update: if isSignedIn() && isValidId(examId) && isOwner(existing().creatorId) && isValidExam(incoming())
+        && incoming().creatorId == existing().creatorId
+        && incoming().createdAt == existing().createdAt
+        && (
+          // Action: Edit metadata
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'topic', 'course', 'questions', 'semester', 'difficulty'])
+        );
+
+      allow delete: if isSignedIn() && isValidId(examId) && (isOwner(existing().creatorId) || isAdmin());
+    }
+
+    // 3. Submissions Collection
+    match /submissions/{submissionId} {
+      allow get: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      
+      allow create: if isSignedIn() && incoming().studentId == request.auth.uid && incoming().submittedAt == request.time;
+      allow update, delete: if isAdmin();
+    }
+  }
+}

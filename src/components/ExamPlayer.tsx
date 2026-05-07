@@ -12,13 +12,15 @@ import {
   BrainCircuit
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '../lib/firebase';
 import { Exam, Question } from '../types';
 import { UNI_LOGO_URL } from '../constants';
 
 interface ExamPlayerProps {
   exam: Exam;
   onClose: () => void;
-  mode?: 'teacher' | 'student';
+  mode?: 'teacher' | 'student' | 'admin';
 }
 
 export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 'teacher' }) => {
@@ -34,7 +36,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
     setAnswers(prev => ({ ...prev, [q.id]: option }));
   };
 
-  const calculateGrade = () => {
+  const calculateGrade = async () => {
     let correctCount = 0;
     exam.questions.forEach(question => {
       const userAnswer = answers[question.id]?.trim().toLowerCase();
@@ -43,8 +45,23 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
         correctCount++;
       }
     });
-    setScore(Math.round((correctCount / exam.questions.length) * 100));
+    const finalScore = Math.round((correctCount / exam.questions.length) * 100);
+    setScore(finalScore);
     setIsFinished(true);
+
+    if (auth.currentUser && mode === 'student') {
+      try {
+        await addDoc(collection(db, 'submissions'), {
+          examId: exam.id,
+          studentId: auth.currentUser.uid,
+          score: finalScore,
+          answers: answers,
+          submittedAt: serverTimestamp()
+        });
+      } catch (err) {
+        console.error("Error saving submission:", err);
+      }
+    }
   };
 
   if (isFinished) {
