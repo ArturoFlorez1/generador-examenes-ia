@@ -14,6 +14,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Exam } from '../types';
 import { jsPDF } from 'jspdf';
+import { UNI_LOGO_URL } from '../constants';
 
 interface DashboardProps {
   exams: Exam[];
@@ -34,7 +35,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ exams, role, onCreateNew, 
     const loadImage = (url: string): Promise<string | null> => {
       return new Promise((resolve) => {
         const img = new Image();
-        img.crossOrigin = "Anonymous";
+        img.crossOrigin = "anonymous";
         img.onload = () => {
           const canvas = document.createElement("canvas");
           canvas.width = img.width;
@@ -42,7 +43,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ exams, role, onCreateNew, 
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL("image/png"));
+            try {
+              resolve(canvas.toDataURL("image/jpeg", 0.9));
+            } catch (e) {
+              resolve(null);
+            }
           } else {
             resolve(null);
           }
@@ -52,10 +57,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ exams, role, onCreateNew, 
       });
     };
 
-    const logoBase64 = await loadImage("https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Logo_Universidad_de_Cordoba.png/512px-Logo_Universidad_de_Cordoba.png");
+    const logoBase64 = await loadImage(UNI_LOGO_URL);
 
     if (logoBase64) {
-      doc.addImage(logoBase64, "PNG", margin, y, 45, 18, undefined, 'FAST');
+      doc.addImage(logoBase64, "JPEG", margin, y, 40, 15, undefined, 'FAST');
     } else {
       // Encabezado alternativo si el logo falla
       doc.setFillColor(0, 132, 61);

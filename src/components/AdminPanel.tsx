@@ -145,6 +145,20 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleReplyMessage = async (msgId: string, reply: string) => {
+    try {
+      const msgRef = doc(db, 'support_messages', msgId);
+      await updateDoc(msgRef, { 
+        reply,
+        status: 'replied',
+        repliedAt: serverTimestamp()
+      });
+      fetchData();
+    } catch (error) {
+      console.error("Error replying to message:", error);
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -343,7 +357,7 @@ export const AdminPanel: React.FC = () => {
                         <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
                           user.role === 'admin' ? 'bg-slate-900 text-white' : user.role === 'teacher' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-blue-50 text-blue-600'
                         }`}>
-                          {user.role}
+                          {user.role === 'admin' ? 'Administrador' : user.role === 'teacher' ? 'Docente' : 'Estudiante'}
                         </span>
                         {user.roleRequest === 'pending' && (
                           <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full animate-pulse">Solicitud Pendiente</span>
@@ -468,52 +482,7 @@ export const AdminPanel: React.FC = () => {
 
           <div className="grid grid-cols-1 gap-4">
             {messages.map((msg) => (
-              <motion.div 
-                layout
-                key={msg.id}
-                className="bg-white border border-slate-100 p-8 rounded-[40px] hover:shadow-xl hover:shadow-slate-200/50 transition-all space-y-6"
-              >
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-                  <div className="flex items-start gap-5">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${
-                      msg.userRole === 'docente' ? 'bg-brand-primary' : 'bg-blue-500'
-                    }`}>
-                      {msg.userRole === 'docente' ? <UserCog size={24} /> : <Users size={24} />}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-bold text-slate-900 text-lg">{msg.name}</h3>
-                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
-                          msg.userRole === 'docente' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-blue-50 text-blue-600'
-                        }`}>
-                          {msg.userRole}
-                        </span>
-                      </div>
-                      <p className="text-sm text-slate-400 font-medium">{msg.email}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Enviado el</p>
-                    <p className="text-sm font-bold text-slate-900">
-                      {msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleString() : 'Recientemente'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 relative">
-                  <div className="absolute top-0 left-8 -translate-y-1/2 w-8 h-8 bg-brand-primary text-white flex items-center justify-center rounded-lg shadow-lg">
-                    <MessageSquare size={16} />
-                  </div>
-                  <p className="text-slate-700 font-medium leading-relaxed mt-2 whitespace-pre-wrap">{msg.message}</p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Asunto:</span>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full">
-                    {msg.subject || 'Consulta General'}
-                  </span>
-                </div>
-              </motion.div>
+              <MessageItem key={msg.id} msg={msg} onReply={handleReplyMessage} />
             ))}
             {messages.length === 0 && (
               <div className="p-20 text-center space-y-4 bg-white rounded-[40px] border border-slate-100">
@@ -525,5 +494,103 @@ export const AdminPanel: React.FC = () => {
         </div>
       )}
     </div>
+  );
+};
+
+const MessageItem = ({ msg, onReply }: { msg: any, onReply: (id: string, reply: string) => void }) => {
+  const [replyText, setReplyText] = useState(msg.reply || '');
+  const [isReplying, setIsReplying] = useState(false);
+
+  return (
+    <motion.div 
+      layout
+      className="bg-white border border-slate-100 p-8 rounded-[40px] hover:shadow-xl hover:shadow-slate-200/50 transition-all space-y-6"
+    >
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+        <div className="flex items-start gap-5">
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${
+            msg.userRole === 'docente' ? 'bg-brand-primary' : 'bg-blue-500'
+          }`}>
+            {msg.userRole === 'docente' ? <UserCog size={24} /> : <Users size={24} />}
+          </div>
+          <div>
+            <div className="flex items-center gap-3">
+              <h3 className="font-bold text-slate-900 text-lg">{msg.name}</h3>
+              <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
+                (msg.userRole === 'docente' || msg.userRole === 'teacher') ? 'bg-brand-primary/10 text-brand-primary' : 'bg-blue-50 text-blue-600'
+              }`}>
+                { (msg.userRole === 'docente' || msg.userRole === 'teacher') ? 'Docente' : 'Estudiante'}
+              </span>
+              {msg.status === 'replied' && (
+                <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full">Respondido</span>
+              )}
+            </div>
+            <p className="text-sm text-slate-400 font-medium">{msg.email}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Enviado el</p>
+          <p className="text-sm font-bold text-slate-900">
+            {msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleString() : 'Recientemente'}
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 relative">
+        <div className="absolute top-0 left-8 -translate-y-1/2 w-8 h-8 bg-brand-primary text-white flex items-center justify-center rounded-lg shadow-lg">
+          <MessageSquare size={16} />
+        </div>
+        <p className="text-slate-700 font-medium leading-relaxed mt-2 whitespace-pre-wrap">{msg.message}</p>
+      </div>
+
+      {msg.reply && !isReplying ? (
+        <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 space-y-2">
+          <p className="text-xs font-black text-emerald-600 uppercase tracking-widest">Respuesta del Administrador:</p>
+          <p className="text-slate-700 font-medium italic">{msg.reply}</p>
+          <button 
+            onClick={() => setIsReplying(true)}
+            className="text-[10px] font-black text-emerald-600 uppercase hover:underline"
+          >
+            Editar Respuesta
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <textarea
+            className="w-full bg-white border border-slate-200 rounded-2xl p-6 outline-none focus:border-brand-primary transition-all font-medium text-slate-700 text-sm h-32 resize-none"
+            placeholder="Escribe tu respuesta aquí..."
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+          />
+          <div className="flex justify-end gap-3">
+            {isReplying && (
+              <button 
+                onClick={() => setIsReplying(false)}
+                className="px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-400"
+              >
+                Cancelar
+              </button>
+            )}
+            <button 
+              onClick={() => {
+                onReply(msg.id, replyText);
+                setIsReplying(false);
+              }}
+              disabled={!replyText.trim()}
+              className="px-8 py-3 bg-brand-primary text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all"
+            >
+              Enviar Respuesta
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Asunto:</span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full">
+          {msg.subject || 'Consulta General'}
+        </span>
+      </div>
+    </motion.div>
   );
 };
