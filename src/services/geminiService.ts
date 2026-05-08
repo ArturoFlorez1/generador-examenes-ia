@@ -1,9 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question, ExamParams } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+function getAI(apiKey?: string) {
+  return new GoogleGenAI({ apiKey: apiKey || process.env.GEMINI_API_KEY || "" });
+}
 
-export async function runAITool(toolId: string, input: any): Promise<string> {
+export async function runAITool(toolId: string, input: any, apiKey?: string): Promise<string> {
   let prompt = "";
   let toolName = "";
 
@@ -55,6 +57,7 @@ export async function runAITool(toolId: string, input: any): Promise<string> {
     Herramienta: ${toolName}
   `;
 
+  const ai = getAI(apiKey);
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: prompt,
@@ -66,7 +69,7 @@ export async function runAITool(toolId: string, input: any): Promise<string> {
   return response.text;
 }
 
-export async function generateExamQuestions(params: ExamParams): Promise<Question[]> {
+export async function generateExamQuestions(params: ExamParams, apiKey?: string): Promise<Question[]> {
   const { topic, difficulty, numQuestions, course, semester, questionTypes, distribution } = params;
 
   let distributionText = "";
@@ -94,18 +97,19 @@ export async function generateExamQuestions(params: ExamParams): Promise<Questio
     6. Evaluar criterios de calidad internamente: Claridad, Coherencia, Pertinencia.
     7. Incluir una "Recomendación para el docente".
     8. Toda la respuesta debe estar estrictamente en español (Español Neutro). Evita términos técnicos en inglés a menos que sea estrictamente necesario para el tema (ej. nombres de lenguajes de programación o protocolos específicos).
-
+    
     Contexto del Curso:
     - Curso: ${course}
     - Semestre: ${semester}
     - Tema: ${topic}
     - Nivel solicitado: ${difficulty}
-
+    
     ${distributionText}
     
     IMPORTANTE: Genera EXACTAMENTE ${numQuestions} preguntas en total, respetando la distribución si fue proporcionada. El contenido debe ser académico, claro y preciso.
   `;
 
+  const ai = getAI(apiKey);
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Genera ${numQuestions} ítems de evaluación sobre ${topic} para el curso ${course}.`,
@@ -157,7 +161,7 @@ export async function generateExamQuestions(params: ExamParams): Promise<Questio
   }
 }
 
-export async function reformulateQuestion(question: Question, instructions: string): Promise<Question> {
+export async function reformulateQuestion(question: Question, instructions: string, apiKey?: string): Promise<Question> {
   const systemInstruction = `
     Eres un experto en evaluación educativa superior.
     Tu tarea es REFORMULAR una pregunta de examen basándote en las instrucciones específicas del docente.
@@ -172,6 +176,7 @@ export async function reformulateQuestion(question: Question, instructions: stri
     4. NO cambies el ID de la pregunta.
   `;
 
+  const ai = getAI(apiKey);
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Reformula esta pregunta: ${JSON.stringify(question)} con estas instrucciones: ${instructions}`,

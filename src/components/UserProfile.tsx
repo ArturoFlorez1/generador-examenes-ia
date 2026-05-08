@@ -30,6 +30,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   onBack 
 }) => {
   const [fullName, setFullName] = useState(profile.fullName || '');
+  const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
   const [isUpdating, setIsUpdating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -39,6 +40,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     
     setIsUpdating(true);
     try {
+      if (apiKey) {
+        localStorage.setItem('gemini_api_key', apiKey.trim());
+      } else {
+        localStorage.removeItem('gemini_api_key');
+      }
       await onUpdate({ fullName });
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -147,6 +153,27 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                   <AlertCircle size={10} /> El correo electrónico no puede ser modificado por seguridad.
                 </p>
               </div>
+
+              {profile.role === 'teacher' && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">API Key Personal (Gemini)</label>
+                  <div className="relative">
+                    <Shield className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                    <input 
+                      type="password"
+                      placeholder="Introduce tu API Key personal"
+                      className="w-full bg-slate-50 border-2 border-slate-50 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-primary/20 transition-all outline-none"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-400 font-medium ml-4 mt-2 italic flex items-center gap-1">
+                    <AlertCircle size={10} /> 
+                    Tu clave se guarda localmente en este dispositivo.
+                    {' '}<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-brand-primary font-bold underline">Solicítala aquí.</a>
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Rol en la Plataforma</label>

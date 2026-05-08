@@ -54,7 +54,8 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
       const question = questions.find(q => q.id === id);
       if (!question) return;
       
-      const newQuestion = await reformulateQuestion(question, instructions);
+      const apiKey = localStorage.getItem('gemini_api_key') || undefined;
+      const newQuestion = await reformulateQuestion(question, instructions, apiKey);
       setQuestions(prev => prev.map(q => q.id === id ? newQuestion : q));
       setReformulatingId(null);
       setInstructions('');

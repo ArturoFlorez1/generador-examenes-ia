@@ -267,6 +267,7 @@ export const AdminPanel: React.FC = () => {
             {[
               { label: 'Usuarios Totales', val: stats.totalUsers, icon: Users, color: 'bg-blue-500' },
               { label: 'Exámenes Creados', val: stats.totalExams, icon: FileText, color: 'bg-brand-primary' },
+              { label: 'Resultados Registrados', val: stats.totalSubmissions, icon: CheckCircle, color: 'bg-emerald-500' },
               { label: 'Solicitudes Pendientes', val: stats.pendingRequests, icon: UserCog, color: 'bg-amber-500' },
             ].map((stat, i) => (
               <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">

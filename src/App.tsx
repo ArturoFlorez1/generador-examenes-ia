@@ -145,7 +145,8 @@ export default function App() {
   const handleGenerate = async (params: ExamParams) => {
     setIsGenerating(true);
     try {
-      const questions = await generateExamQuestions(params);
+      const apiKey = localStorage.getItem('gemini_api_key') || undefined;
+      const questions = await generateExamQuestions(params, apiKey);
       setCurrentExam({
         ...params,
         id: crypto.randomUUID(),

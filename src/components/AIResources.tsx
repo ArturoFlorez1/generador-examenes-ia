@@ -150,7 +150,8 @@ export const AIResources: React.FC = () => {
     setLoading(true);
     setResult(null);
     try {
-      const response = await runAITool(toolId, formValues);
+      const apiKey = localStorage.getItem('gemini_api_key') || undefined;
+      const response = await runAITool(toolId, formValues, apiKey);
       setResult(response);
     } catch (error) {
       console.error(error);
