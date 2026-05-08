@@ -36,6 +36,8 @@ export interface Exam {
   difficulty: string;
   questions: Question[];
   createdAt: number;
+  teacherName?: string;
+  showTeacherInPdf?: boolean;
 }
 
 export interface QuestionDistribution {

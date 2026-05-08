@@ -16,6 +16,9 @@ import { QuestionReview } from './components/QuestionReview';
 import { ExamPlayer } from './components/ExamPlayer';
 import { AIResources } from './components/AIResources';
 import { AdminPanel } from './components/AdminPanel';
+import { HelpCenter } from './components/HelpCenter';
+import { Contact } from './components/Contact';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { Login } from './components/Login';
 import { generateExamQuestions } from './services/geminiService';
 import { examsService } from './services/firestoreService';
@@ -26,7 +29,7 @@ import { UNI_LOGO_URL } from './constants';
 export default function App() {
   const { user, profile, loading: authLoading, requestDocente, logout } = useAuth();
   const [role, setRole] = useState<'teacher' | 'student' | 'admin'>('student');
-  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin' | 'help' | 'contact' | 'privacy'>('dashboard');
   const [exams, setExams] = useState<Exam[]>([]);
   const [currentExam, setCurrentExam] = useState<Partial<Exam> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -39,6 +42,10 @@ export default function App() {
     // Set initial role from profile
     if (profile?.role) {
       setRole(profile.role);
+      // If admin, default to admin panel
+      if (profile.role === 'admin') {
+        setView('admin');
+      }
     }
 
     const unsubscribe = examsService.subscribeToUserExams(user.uid, (data) => {
@@ -118,10 +125,16 @@ export default function App() {
           </div>
 
           <div className="hidden md:flex items-center gap-8">
-            <NavLink active={view === 'dashboard'} onClick={() => setView('dashboard')}>Dashboard</NavLink>
-            <NavLink active={view === 'resources'} onClick={() => setView('resources')}>Recursos AI</NavLink>
+            {role !== 'admin' && (
+              <>
+                <NavLink active={view === 'dashboard'} onClick={() => setView('dashboard')}>Dashboard</NavLink>
+                {role !== 'student' && (
+                  <NavLink active={view === 'resources'} onClick={() => setView('resources')}>Recursos AI</NavLink>
+                )}
+              </>
+            )}
             {role === 'admin' && (
-              <NavLink active={view === 'admin'} onClick={() => setView('admin')}>Admin Panel</NavLink>
+              <NavLink active={view === 'admin'} onClick={() => setView('admin')}>Panel Admin</NavLink>
             )}
             <div className="w-px h-6 bg-slate-200" />
             <button 
@@ -141,7 +154,7 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-12">
-        {view === 'dashboard' && (
+        {view === 'dashboard' && role !== 'admin' && (
           <div className="space-y-12 animate-in fade-in duration-700">
             {role === 'student' && profile?.roleRequest !== 'pending' && profile?.roleRequest !== 'approved' && (
               <motion.div 
@@ -243,8 +256,20 @@ export default function App() {
           />
         )}
 
-        {view === 'resources' && (
+        {view === 'resources' && role !== 'admin' && (
           <AIResources />
+        )}
+
+        {view === 'help' && (
+          <HelpCenter onBack={() => setView('dashboard')} />
+        )}
+
+        {view === 'contact' && (
+          <Contact onBack={() => setView('dashboard')} />
+        )}
+
+        {view === 'privacy' && (
+          <PrivacyPolicy onBack={() => setView('dashboard')} />
         )}
       </main>
 
@@ -266,17 +291,16 @@ export default function App() {
           <div className="space-y-4">
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Universidad</h4>
             <ul className="text-sm text-slate-500 space-y-2">
-              <li><a href="#" className="hover:text-brand-primary transition-colors">Facultad de Educación</a></li>
-              <li><a href="#" className="hover:text-brand-primary transition-colors">Portal Docente</a></li>
-              <li><a href="#" className="hover:text-brand-primary transition-colors">Normativa Académica</a></li>
+              <li><a href="https://unicordoba.edu.co/facultad-de-educacion-y-ciencias-humanas/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-primary transition-colors">Facultad de Educación</a></li>
+              <li><a href="https://unicordoba.edu.co/reglamentos/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-primary transition-colors">Normatividad</a></li>
             </ul>
           </div>
           <div className="space-y-4">
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Soporte</h4>
             <ul className="text-sm text-slate-500 space-y-2">
-              <li><a href="#" className="hover:text-brand-primary transition-colors">Centro de Ayuda</a></li>
-              <li><a href="#" className="hover:text-brand-primary transition-colors">Contacto</a></li>
-              <li><a href="#" className="hover:text-brand-primary transition-colors">Privacidad</a></li>
+              <li><button onClick={() => setView('help')} className="hover:text-brand-primary transition-colors text-left">Centro de Ayuda</button></li>
+              <li><button onClick={() => setView('contact')} className="hover:text-brand-primary transition-colors text-left">Contacto</button></li>
+              <li><button onClick={() => setView('privacy')} className="hover:text-brand-primary transition-colors text-left">Privacidad</button></li>
             </ul>
           </div>
         </div>

@@ -23,6 +23,14 @@ interface ExamPlayerProps {
   mode?: 'teacher' | 'student' | 'admin';
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  'multiple_choice': 'Opción Múltiple',
+  'true_false': 'Falso o Verdadero',
+  'open_question': 'Pregunta Abierta',
+  'case_study': 'Estudio de Caso',
+  'workshop': 'Taller Práctico'
+};
+
 export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 'teacher' }) => {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -197,8 +205,8 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
           className="card p-8 md:p-12 space-y-8"
         >
           <div className="space-y-4">
-            <span className="text-[10px] font-black tracking-widest text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full capitalize">
-              {q.type.replace('_', ' ')}
+            <span className="text-[10px] font-black tracking-widest text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full uppercase">
+              {TYPE_LABELS[q.type] || q.type.replace('_', ' ')}
             </span>
             <h2 className="text-2xl font-bold text-slate-900 leading-tight">
               {q.prompt}

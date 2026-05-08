@@ -129,5 +129,11 @@ service cloud.firestore {
       allow create: if isSignedIn() && incoming().studentId == request.auth.uid && incoming().submittedAt == request.time;
       allow update, delete: if isAdmin();
     }
+
+    // 4. Support Messages Collection
+    match /support_messages/{messageId} {
+      allow create: if true; // Allow anonymous or any user to send contact messages
+      allow read, update, delete: if isAdmin();
+    }
   }
 }

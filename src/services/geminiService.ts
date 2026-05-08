@@ -10,19 +10,39 @@ export async function runAITool(toolId: string, input: any): Promise<string> {
   switch (toolId) {
     case 'bloom':
       toolName = "Generador de Preguntas por Taxonomía de Bloom";
-      prompt = `Genera 3 variantes de preguntas sobre el tema "${input.topic}" para el curso "${input.course}", cada una correspondiente a un nivel diferente de la Taxonomía de Bloom (Especificar nivel).`;
+      prompt = `Genera un set de preguntas sobre el tema "${input.topic}" para el curso "${input.course}". 
+      Enfócate específicamente en el nivel de complejidad: ${input.bloomLevel || 'Cualquiera'}.
+      Proporciona el enunciado, las opciones (si aplica) y la justificación pedagógica de por qué pertenece a ese nivel de Bloom.`;
       break;
     case 'evaluator':
       toolName = "Evaluador Pedagógico de Instrumentos";
-      prompt = `Analiza pedagógicamente el siguiente examen o ítem: "${input.content}". Proporciona una revisión crítica basada en criterios de claridad, validez técnica y alineación con evidencias de aprendizaje.`;
+      prompt = `Analiza pedagógicamente el siguiente examen o contenido educativo: 
+      ---
+      ${input.content}
+      ---
+      Proporciona una revisión crítica detallada que incluya:
+      1. Calidad de los enunciados.
+      2. Validez técnica de las opciones/preguntas.
+      3. Alineación con niveles cognitivos.
+      4. Recomendaciones de mejora concretas.`;
       break;
     case 'rubric':
-      toolName = "Generador de Rúbricas Basadas en Evidencias";
-      prompt = `Crea una rúbrica detallada en formato tabla para evaluar un(a) "${input.activity}" sobre "${input.topic}". Incluye criterios (Excelente, Bueno, Regular, Insuficiente) y puntajes sugeridos.`;
+      toolName = "Generador de Rúbricas Basadas en Competencias";
+      prompt = `Crea una rúbrica de evaluación profesional para:
+      Actividad: ${input.activity}
+      Tema/Contexto: ${input.topic}
+      Criterios/Competencias a incluir: ${input.criteria || 'Criterios estándar de calidad académica'}.
+      
+      Formato solicitado: Tabla de doble entrada con niveles (Excelente, Bueno, Regular, Insuficiente) y descriptores claros para cada celda.`;
       break;
     case 'improver':
       toolName = "Optimizador de Enunciados y Opciones";
-      prompt = `Mejora y optimiza pedagógicamente el siguiente ítem de evaluación: "${input.question}". Asegura que sea claro, sin ambigüedades y que las opciones (si las hay) sean distractores válidos.`;
+      prompt = `Actúa como un experto en redacción de ítems. Mejora pedagógicamente el siguiente contenido: "${input.question}". 
+      Asegura que:
+      - El enunciado sea directo e inequívoco.
+      - No haya pistas gramaticales hacia la respuesta correcta.
+      - Los distractores sean plausibles.
+      - El lenguaje sea académico y preciso.`;
       break;
     default:
       throw new Error("Herramienta no reconocida.");
@@ -135,4 +155,61 @@ export async function generateExamQuestions(params: ExamParams): Promise<Questio
     console.error("Error parsing Gemini response:", error);
     throw new Error("No se pudo generar el examen. Por favor, intenta de nuevo.");
   }
+}
+
+export async function reformulateQuestion(question: Question, instructions: string): Promise<Question> {
+  const systemInstruction = `
+    Eres un experto en evaluación educativa superior.
+    Tu tarea es REFORMULAR una pregunta de examen basándote en las instrucciones específicas del docente.
+    
+    INSTRUCCIONES DEL DOCENTE:
+    "${instructions}"
+    
+    REGLAS:
+    1. Mantén la esencia del tema pero ajusta la redacción, opciones o estructura según lo solicitado.
+    2. Mantén la calidad pedagógica y el rigor académico.
+    3. Devuelve estrictamente un objeto JSON que siga el esquema de la pregunta original.
+    4. NO cambies el ID de la pregunta.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Reformula esta pregunta: ${JSON.stringify(question)} con estas instrucciones: ${instructions}`,
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          id: { type: Type.STRING },
+          type: { type: Type.STRING, enum: ['multiple_choice', 'open_question', 'case_study', 'workshop', 'true_false'] },
+          prompt: { type: Type.STRING },
+          options: { type: Type.ARRAY, items: { type: Type.STRING } },
+          correctAnswer: { type: Type.STRING },
+          justification: { type: Type.STRING },
+          competence: { type: Type.STRING },
+          learningOutcome: { type: Type.STRING },
+          bloomLevel: { type: Type.STRING },
+          difficulty: { type: Type.STRING, enum: ['bajo', 'medio', 'alto'] },
+          difficultyJustification: { type: Type.STRING },
+          qualityCriteria: {
+            type: Type.OBJECT,
+            properties: {
+              clarity: { type: Type.STRING },
+              coherence: { type: Type.STRING },
+              pertinence: { type: Type.STRING }
+            }
+          },
+          teacherRecommendation: { type: Type.STRING }
+        },
+        required: [
+          "id", "type", "prompt", "correctAnswer", "justification", "competence", 
+          "learningOutcome", "bloomLevel", "difficulty", "difficultyJustification", 
+          "qualityCriteria", "teacherRecommendation"
+        ]
+      }
+    }
+  });
+
+  return JSON.parse(response.text);
 }

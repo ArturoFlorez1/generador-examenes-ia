@@ -9,11 +9,16 @@ import {
   AlertCircle,
   FileText,
   Sparkles,
-  Check
+  Check,
+  RefreshCw,
+  Send,
+  Loader2,
+  Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Question, Exam } from '../types';
 import { UNI_LOGO_URL } from '../constants';
+import { reformulateQuestion } from '../services/geminiService';
 
 interface QuestionReviewProps {
   exam: Partial<Exam>;
@@ -21,12 +26,44 @@ interface QuestionReviewProps {
   onCancel: () => void;
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  'multiple_choice': 'Opción Múltiple',
+  'true_false': 'Falso o Verdadero',
+  'open_question': 'Pregunta Abierta',
+  'case_study': 'Estudio de Caso',
+  'workshop': 'Taller Práctico'
+};
+
 export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, onCancel }) => {
   const [questions, setQuestions] = useState<Question[]>(exam.questions || []);
   const [title, setTitle] = useState(exam.title || `Examen de ${exam.topic}`);
+  const [teacherName, setTeacherName] = useState(exam.teacherName || '');
+  const [showTeacherInPdf, setShowTeacherInPdf] = useState(exam.showTeacherInPdf !== false);
+  const [reformulatingId, setReformulatingId] = useState<string | null>(null);
+  const [instructions, setInstructions] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const deleteQuestion = (id: string) => {
     setQuestions(prev => prev.filter(q => q.id !== id));
+  };
+
+  const handleReformulate = async (id: string) => {
+    if (!instructions.trim()) return;
+    setIsProcessing(true);
+    try {
+      const question = questions.find(q => q.id === id);
+      if (!question) return;
+      
+      const newQuestion = await reformulateQuestion(question, instructions);
+      setQuestions(prev => prev.map(q => q.id === id ? newQuestion : q));
+      setReformulatingId(null);
+      setInstructions('');
+    } catch (error) {
+      console.error("Error reformulating:", error);
+      alert("No se pudo reformular la pregunta. Inténtalo de nuevo.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleSave = () => {
@@ -35,6 +72,8 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
       id: exam.id || Date.now().toString(),
       title,
       questions,
+      teacherName,
+      showTeacherInPdf,
       createdAt: Date.now()
     } as Exam);
   };
@@ -80,6 +119,37 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
       </header>
 
       <div className="space-y-10">
+        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+          <div className="space-y-3">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Users size={14} className="text-brand-primary" /> Nombre del Docente (Opcional)
+            </label>
+            <input 
+              type="text"
+              placeholder="Ej: Florez Arturo"
+              className="w-full bg-white border border-slate-200 rounded-2xl p-4 focus:ring-4 focus:ring-brand-primary/5 outline-none transition-all font-bold text-slate-700"
+              value={teacherName}
+              onChange={e => setTeacherName(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+             <button 
+               onClick={() => setShowTeacherInPdf(!showTeacherInPdf)}
+               className={`flex-1 w-full flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all font-bold text-xs uppercase tracking-widest ${
+                 showTeacherInPdf 
+                   ? 'bg-brand-primary/5 border-brand-primary text-brand-primary' 
+                   : 'bg-slate-50 border-slate-200 text-slate-400'
+               }`}
+             >
+               <CheckCircle2 size={18} className={showTeacherInPdf ? 'opacity-100' : 'opacity-20'} />
+               {showTeacherInPdf ? 'Nombre visible en PDF' : 'Nombre oculto en PDF'}
+             </button>
+             <div className="flex-1 text-[10px] font-medium text-slate-400 italic leading-snug">
+               * Define si quieres que tu nombre aparezca en el encabezado del examen impreso.
+             </div>
+          </div>
+        </div>
+
         <AnimatePresence>
           {questions.map((q, index) => (
             <motion.div
@@ -99,7 +169,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                       {index + 1}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] font-black bg-brand-primary/5 text-brand-primary px-3 py-1.5 rounded-xl border border-brand-primary/20 tracking-widest capitalize">{q.type.replace('_', ' ')}</span>
+                      <span className="text-[10px] font-black bg-brand-primary/5 text-brand-primary px-3 py-1.5 rounded-xl border border-brand-primary/20 tracking-widest uppercase">{TYPE_LABELS[q.type] || q.type.replace('_', ' ')}</span>
                       <span className="text-[10px] font-black bg-brand-primary text-white px-3 py-1.5 rounded-xl tracking-widest">Bloom: {q.bloomLevel}</span>
                       <span className={`text-[10px] font-black px-3 py-1.5 rounded-xl tracking-widest border ${
                         q.difficulty === 'alto' ? 'bg-red-50 text-red-600 border-red-100' : 
@@ -107,21 +177,77 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                       }`}>Dificultad: {q.difficulty}</span>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => deleteQuestion(q.id)}
-                    className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
-                    title="Eliminar ítem"
-                  >
-                    <Trash2 size={24} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setReformulatingId(q.id)}
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all shadow-sm"
+                    >
+                      <RefreshCw size={14} className={reformulatingId === q.id && isProcessing ? 'animate-spin' : ''} />
+                      Reformular con IA
+                    </button>
+                    <button 
+                      onClick={() => deleteQuestion(q.id)}
+                      className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                      title="Eliminar ítem"
+                    >
+                      <Trash2 size={24} />
+                    </button>
+                  </div>
                 </div>
+
+                <AnimatePresence>
+                  {reformulatingId === q.id && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 space-y-4">
+                        <label className="text-[10px] font-black text-emerald-800 uppercase tracking-widest block">
+                          ¿Cómo quieres que sea la nueva versión de esta pregunta?
+                        </label>
+                        <div className="flex gap-3">
+                          <textarea 
+                            autoFocus
+                            placeholder="Ej: Hazla más difícil, enfócate en el subtema X, cámbiala a estudio de caso..."
+                            className="flex-1 bg-white border border-emerald-200 rounded-2xl p-4 outline-none focus:ring-4 focus:ring-emerald-500/10 text-sm font-medium resize-none shadow-sm"
+                            rows={3}
+                            value={instructions}
+                            onChange={(e) => setInstructions(e.target.value)}
+                          />
+                          <div className="flex flex-col gap-2">
+                            <button 
+                              onClick={() => handleReformulate(q.id)}
+                              disabled={isProcessing || !instructions.trim()}
+                              className="bg-brand-primary text-white p-4 rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-lg shadow-brand-primary/20 disabled:grayscale disabled:opacity-50"
+                            >
+                              {isProcessing ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setReformulatingId(null);
+                                setInstructions('');
+                              }}
+                              className="bg-white text-slate-400 p-4 rounded-2xl hover:text-slate-900 transition-all border border-slate-200 shadow-sm"
+                            >
+                              <XCircle size={20} />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-[9px] font-bold text-emerald-600/70 italic">* La IA mantendrá el contexto del curso pero aplicará tus cambios específicos.</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 <div className="space-y-4">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <FileText size={14}/> Enunciado del Instrumento
                   </label>
                   <textarea
-                    className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-3xl p-8 focus:border-brand-primary focus:bg-white outline-none min-h-[120px] transition-all font-bold text-xl text-slate-900 leading-relaxed shadow-inner"
+                    rows={Math.max(3, Math.ceil(q.prompt.length / 60))}
+                    className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-3xl p-8 focus:border-brand-primary focus:bg-white outline-none min-h-[140px] transition-all font-bold text-xl text-slate-900 leading-relaxed shadow-inner resize-none overflow-hidden"
                     value={q.prompt}
                     onChange={e => {
                       const newQs = [...questions];
@@ -132,22 +258,23 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                 </div>
 
                 {q.options && q.options.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {q.options.map((opt, i) => (
                       <div 
                         key={i}
-                        className={`p-5 rounded-2xl border-2 text-sm flex items-center justify-between gap-4 group/opt ${
+                        className={`p-5 rounded-2xl border-2 text-sm flex items-start justify-between gap-4 group/opt ${
                           opt === q.correctAnswer 
-                            ? 'border-emerald-200 bg-emerald-50/50 text-emerald-700 font-bold' 
+                            ? 'border-emerald-200 bg-emerald-50/50 text-emerald-700 font-bold shadow-sm' 
                             : 'border-slate-50 bg-white text-slate-600'
                         }`}
                       >
-                        <div className="flex items-center gap-4">
-                          <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ring-1 ${
+                        <div className="flex items-start gap-4 flex-1">
+                          <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ring-1 shrink-0 mt-0.5 ${
                             opt === q.correctAnswer ? 'bg-emerald-500 text-white ring-emerald-600' : 'bg-slate-100 text-slate-400 ring-slate-200'
                           }`}>{String.fromCharCode(65 + i)}</span>
-                          <input 
-                            className="bg-transparent border-none outline-none flex-1 font-medium"
+                          <textarea 
+                            rows={Math.max(1, Math.ceil(opt.length / 80))}
+                            className="bg-transparent border-none outline-none flex-1 font-medium resize-none leading-relaxed h-auto"
                             value={opt}
                             onChange={(e) => {
                               const newQs = [...questions];
@@ -156,7 +283,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                             }}
                           />
                         </div>
-                        {opt === q.correctAnswer && <Check size={20} className="shrink-0" />}
+                        {opt === q.correctAnswer && <Check size={20} className="shrink-0 mt-1" />}
                       </div>
                     ))}
                   </div>
@@ -199,8 +326,8 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                       <BrainCircuit size={18} /> Justificación Pedagógica (Docente)
                     </div>
                     <textarea
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:bg-white/10 transition-all text-xs text-slate-300 leading-relaxed italic resize-none"
-                      rows={5}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:bg-white/10 transition-all text-xs text-slate-300 leading-relaxed italic resize-none overflow-hidden min-h-[120px]"
+                      rows={Math.max(4, Math.ceil(q.justification.length / 50))}
                       value={q.justification}
                       onChange={e => {
                         const newQs = [...questions];

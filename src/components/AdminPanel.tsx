@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, 
   ShieldCheck, 
@@ -9,33 +9,58 @@ import {
   Loader2,
   BarChart3,
   FileText,
-  GraduationCap
+  GraduationCap,
+  History,
+  PieChart as PieChartIcon,
+  MessageSquare,
+  Mail
 } from 'lucide-react';
 import { collection, query, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  PieChart, 
+  Pie, 
+  Cell,
+  LineChart,
+  Line
+} from 'recharts';
 
 export const AdminPanel: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'metrics' | 'users' | 'exams' | 'messages'>('metrics');
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const usersSnap = await getDocs(query(collection(db, 'users')));
-      const examsSnap = await getDocs(query(collection(db, 'exams')));
-      const subSnap = await getDocs(query(collection(db, 'submissions')));
+      const [usersSnap, examsSnap, subSnap, msgSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users'))),
+        getDocs(query(collection(db, 'exams'))),
+        getDocs(query(collection(db, 'submissions'))),
+        getDocs(query(collection(db, 'support_messages')))
+      ]);
       
       const usersData = usersSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       const examsData = examsSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       const subData = subSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      const msgData = msgSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       
       setUsers(usersData);
       setExams(examsData);
       setSubmissions(subData);
+      setMessages(msgData.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
     } catch (error) {
       console.error("Error fetching admin data:", error);
     } finally {
@@ -46,6 +71,52 @@ export const AdminPanel: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const stats = useMemo(() => ({
+    totalUsers: users.length,
+    totalExams: exams.length,
+    totalSubmissions: submissions.length,
+    teachers: users.filter(u => u.role === 'teacher').length,
+    students: users.filter(u => u.role === 'student').length,
+    pendingRequests: users.filter(u => u.roleRequest === 'pending').length
+  }), [users, exams, submissions]);
+
+  // Chart Data Preparation
+  const roleData = [
+    { name: 'Docentes', value: stats.teachers, color: '#00843D' },
+    { name: 'Estudiantes', value: stats.students, color: '#3b82f6' },
+  ];
+
+  const examsPerTeacher = useMemo(() => {
+    const teacherMap: Record<string, { name: string, count: number }> = {};
+    users.filter(u => u.role === 'teacher').forEach(u => {
+      teacherMap[u.uid] = { name: u.email?.split('@')[0] || 'Docente', count: 0 };
+    });
+    
+    exams.forEach(e => {
+      if (teacherMap[e.creatorId]) {
+        teacherMap[e.creatorId].count++;
+      }
+    });
+    
+    return Object.values(teacherMap).sort((a, b) => b.count - a.count);
+  }, [users, exams]);
+
+  const submissionsByDay = useMemo(() => {
+    const daily: Record<string, number> = {};
+    submissions.forEach(s => {
+      // Handle Firestore Timestamp or number
+      const dateVal = s.submittedAt?.seconds ? s.submittedAt.seconds * 1000 : s.submittedAt;
+      if (dateVal) {
+        const dateStr = new Date(dateVal).toLocaleDateString();
+        daily[dateStr] = (daily[dateStr] || 0) + 1;
+      }
+    });
+    return Object.entries(daily)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(-10);
+  }, [submissions]);
 
   const handleRoleUpdate = async (userId: string, newRole: string) => {
     try {
@@ -74,21 +145,14 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
-  const getUserExamCount = (userId: string) => {
-    return exams.filter(e => e.creatorId === userId).length;
-  };
-
   const filteredUsers = users.filter(u => 
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const stats = {
-    totalUsers: users.length,
-    totalExams: exams.length,
-    totalSubmissions: submissions.length,
-    teachers: users.filter(u => u.role === 'teacher').length,
-    students: users.filter(u => u.role === 'student').length,
-  };
+  const filteredExams = exams.filter(e => 
+    e.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    e.course?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom duration-700 py-10">
@@ -98,192 +162,368 @@ export const AdminPanel: React.FC = () => {
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-tight">
             Consola de <span className="text-brand-primary">administración</span>
           </h1>
-          <p className="text-slate-500 font-medium mt-2">Monitoreo de actividad y gestión de la Licenciatura en Informática.</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="px-3 py-1 bg-brand-primary text-white text-[10px] font-black uppercase rounded-full">Licenciatura en Informática</span>
+            <p className="text-slate-500 font-medium italic text-sm">Monitoreo y gestión centralizada.</p>
+          </div>
         </div>
-        <div className="bg-slate-900 text-white px-6 py-2 rounded-2xl text-[10px] font-black tracking-widest flex items-center gap-3 shadow-lg shadow-slate-900/20">
-          <ShieldCheck size={16} /> Panel maestro
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-900 text-white px-6 py-2 rounded-2xl text-[10px] font-black tracking-widest flex items-center gap-3 shadow-lg shadow-slate-900/20">
+            <ShieldCheck size={16} /> Panel maestro
+          </div>
         </div>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Tabs */}
+      <div className="flex items-center bg-slate-100 p-1.5 rounded-3xl w-fit">
         {[
-          { label: 'Usuarios Totales', val: stats.totalUsers, icon: Users, color: 'bg-blue-500' },
-          { label: 'Exámenes Creados', val: stats.totalExams, icon: FileText, color: 'bg-brand-primary' },
-          { label: 'Resultados Registrados', val: stats.totalSubmissions, icon: CheckCircle, color: 'bg-emerald-500' },
-          { label: 'Cuerpo Docente', val: stats.teachers, icon: UserCog, color: 'bg-amber-500' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className={`${stat.color} text-white p-3 rounded-2xl`}>
-              <stat.icon size={24} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
-              <p className="text-2xl font-black text-slate-900">{stat.val}</p>
-            </div>
-          </div>
+          { id: 'metrics', label: 'Métricas de Uso', icon: BarChart3 },
+          { id: 'users', label: 'Usuarios', icon: Users },
+          { id: 'exams', label: 'Repositorio', icon: FileText },
+          { id: 'messages', label: 'Mensajes de Soporte', icon: MessageSquare }
+        ].map(tab => (
+          <button 
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
+              activeTab === tab.id ? 'bg-white text-slate-900 shadow-xl shadow-slate-200' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <tab.icon size={16} />
+            {tab.label}
+          </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* User List & Role Management */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-3">
-              <BarChart3 className="text-brand-primary" /> Uso por Usuario
-            </h2>
-            <div className="relative w-64">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+      {activeTab === 'metrics' && (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { label: 'Usuarios Totales', val: stats.totalUsers, icon: Users, color: 'bg-blue-500' },
+              { label: 'Exámenes Creados', val: stats.totalExams, icon: FileText, color: 'bg-brand-primary' },
+              { label: 'Resultados Registrados', val: stats.totalSubmissions, icon: CheckCircle, color: 'bg-emerald-500' },
+              { label: 'Solicitudes Pendientes', val: stats.pendingRequests, icon: UserCog, color: 'bg-amber-500' },
+            ].map((stat, i) => (
+              <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
+                <div className={`${stat.color} text-white p-3 rounded-2xl`}>
+                  <stat.icon size={24} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p>
+                  <p className="text-2xl font-black text-slate-900">{stat.val}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Charts Section */}
+            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <PieChartIcon className="text-brand-primary" /> Distribución de Roles
+              </h3>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={roleData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {roleData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-6">
+                {roleData.map(d => (
+                  <div key={d.name} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }} />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{d.name}: {d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <History className="text-brand-primary" /> Tendencia de participación estudiantil
+              </h3>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={submissionsByDay}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="date" fontSize={10} axisLine={false} tickLine={false} />
+                    <YAxis fontSize={10} axisLine={false} tickLine={false} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Line type="monotone" dataKey="count" stroke="#00843D" strokeWidth={4} dot={{ r: 6, fill: '#00843D' }} activeDot={{ r: 8 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Teacher Activity List - Scalable */}
+          <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <UserCog className="text-brand-primary" /> Actividad detallada por docente
+              </h3>
+              <span className="text-[10px] font-black bg-slate-100 text-slate-400 px-3 py-1 rounded-full uppercase tracking-widest">
+                {examsPerTeacher.length} Docentes registrados
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {examsPerTeacher.map((teacher, idx) => (
+                <div key={idx} className="flex items-center justify-between p-5 bg-slate-50 rounded-[32px] border border-slate-100 group hover:border-brand-primary/30 transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center font-black text-brand-primary text-sm group-hover:bg-brand-primary group-hover:text-white transition-colors">
+                      {teacher.count}
+                    </div>
+                    <div className="truncate">
+                      <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{teacher.name}</p>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Exámenes totales</p>
+                    </div>
+                  </div>
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Activo" />
+                </div>
+              ))}
+              {examsPerTeacher.length === 0 && (
+                <div className="col-span-full text-center py-10 italic text-slate-400 text-sm">No hay actividad docente registrada aún.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'users' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Gestión de Usuarios</h2>
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text"
-                placeholder="Filtrar correo..."
-                className="w-full bg-white border border-slate-200 rounded-2xl py-2 pl-10 pr-4 outline-none focus:border-brand-primary text-xs"
+                placeholder="Buscar por correo..."
+                className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-6 outline-none focus:border-brand-primary text-sm shadow-sm"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="space-y-4">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center p-20 space-y-4">
-                <Loader2 className="animate-spin text-brand-primary" size={48} />
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Analizando métricas...</p>
-              </div>
-            ) : (
-              <AnimatePresence>
-                {filteredUsers.map((user) => (
-                  <motion.div 
-                    layout
-                    key={user.uid}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="bg-white border border-slate-100 p-5 rounded-3xl hover:shadow-xl hover:shadow-slate-200/50 transition-all group"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md ${
-                          user.role === 'admin' ? 'bg-slate-900' : user.role === 'teacher' ? 'bg-brand-primary' : 'bg-blue-500'
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredUsers.map((user) => (
+              <motion.div 
+                layout
+                key={user.uid}
+                className="bg-white border border-slate-100 p-6 rounded-3xl hover:shadow-xl hover:shadow-slate-200/50 transition-all group flex flex-col justify-between"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md ${
+                      user.role === 'admin' ? 'bg-slate-900' : user.role === 'teacher' ? 'bg-brand-primary' : 'bg-blue-500'
+                    }`}>
+                      {user.role === 'admin' ? <ShieldCheck size={20} /> : user.role === 'teacher' ? <UserCog size={20} /> : <Users size={20} />}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm">{user.email}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                          user.role === 'admin' ? 'bg-slate-900 text-white' : user.role === 'teacher' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-blue-50 text-blue-600'
                         }`}>
-                          {user.role === 'admin' ? <ShieldCheck size={20} /> : user.role === 'teacher' ? <UserCog size={20} /> : <Users size={20} />}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-slate-900 text-sm">{user.email}</h3>
-                            <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                              user.role === 'admin' ? 'bg-slate-900 text-white' : user.role === 'teacher' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-blue-50 text-blue-600'
-                            }`}>
-                              {user.role}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-slate-400 font-medium">Actividad: {getUserExamCount(user.uid)} exámenes creados</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
+                          {user.role}
+                        </span>
                         {user.roleRequest === 'pending' && (
-                          <div className="flex gap-1">
-                            <button 
-                              onClick={() => handleRejectRequest(user.uid)}
-                              className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors"
-                              title="Rechazar solicitud"
-                            >
-                              <XCircle size={16} />
-                            </button>
-                            <button 
-                              onClick={() => handleRoleUpdate(user.uid, 'teacher')}
-                              className="p-2 bg-brand-primary text-white rounded-xl hover:scale-105 active:scale-95 transition-all"
-                              title="Aprobar solicitud Docente"
-                            >
-                              <CheckCircle size={16} />
-                            </button>
-                          </div>
+                          <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full animate-pulse">Solicitud Pendiente</span>
                         )}
-                        <div className="h-6 w-px bg-slate-100 mx-2 hidden sm:block" />
-                        <button 
-                          onClick={() => handleRoleUpdate(user.uid, user.role === 'teacher' ? 'student' : 'teacher')}
-                          disabled={user.role === 'admin'}
-                          className="text-[9px] font-black text-slate-400 hover:text-brand-primary uppercase tracking-widest disabled:opacity-0 transition-colors"
-                        >
-                          Cambiar a {user.role === 'teacher' ? 'Estudiante' : 'Docente'}
-                        </button>
                       </div>
                     </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-slate-50 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {user.roleRequest === 'pending' ? (
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleRoleUpdate(user.uid, 'teacher')}
+                          className="px-4 py-2 bg-brand-primary text-white text-[10px] font-black uppercase rounded-xl hover:scale-105 transition-all"
+                        >
+                          Aprobar
+                        </button>
+                        <button 
+                          onClick={() => handleRejectRequest(user.uid)}
+                          className="px-4 py-2 bg-red-50 text-red-500 text-[10px] font-black uppercase rounded-xl hover:bg-red-100 transition-all"
+                        >
+                          Rechazar
+                        </button>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={() => handleRoleUpdate(user.uid, user.role === 'teacher' ? 'student' : 'teacher')}
+                        disabled={user.role === 'admin'}
+                        className="text-[10px] font-black text-slate-400 hover:text-brand-primary uppercase tracking-widest disabled:opacity-0 transition-colors"
+                      >
+                        Cambiar a {user.role === 'teacher' ? 'Estudiante' : 'Docente'}
+                      </button>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-slate-300 font-medium italic">
+                    UID: {user.uid.substring(0, 8)}...
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'exams' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Instrumentos Generados</h2>
+            <div className="relative w-full md:w-96">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Buscar por título o curso..."
+                className="w-full bg-white border border-slate-200 rounded-2xl py-3 pl-12 pr-6 outline-none focus:border-brand-primary text-sm shadow-sm"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-100 rounded-[40px] overflow-hidden shadow-xl shadow-slate-200/50">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Examen / Título</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Curso</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Creado por</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Fecha</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredExams.map(exam => {
+                  const creator = users.find(u => u.uid === exam.creatorId);
+                  return (
+                    <tr key={exam.id} className="hover:bg-slate-50 transition-colors group">
+                      <td className="px-8 py-6">
+                        <p className="font-bold text-slate-900 line-clamp-1">{exam.title}</p>
+                        <span className="text-[10px] font-black text-brand-primary uppercase tracking-tighter">{exam.difficulty}</span>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-2">
+                          <GraduationCap size={16} className="text-slate-300" />
+                          <p className="text-sm font-medium text-slate-600">{exam.course}</p>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-2">
+                          <UserCog size={16} className="text-brand-primary" />
+                          <p className="text-sm font-bold text-slate-900">{creator?.email || 'Docente Externo'}</p>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <p className="text-xs text-slate-400 font-medium">
+                          {exam.createdAt?.seconds ? new Date(exam.createdAt.seconds * 1000).toLocaleDateString() : 'Desconocido'}
+                        </p>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {filteredExams.length === 0 && (
+              <div className="p-20 text-center space-y-4">
+                <FileText className="mx-auto text-slate-100" size={64} />
+                <p className="text-slate-400 text-sm font-medium italic">No se encontraron exámenes con los filtros aplicados.</p>
+              </div>
             )}
           </div>
         </div>
+      )}
 
-        {/* Side Panel: Quick Actions/Info */}
-        <div className="space-y-6">
-          <div className="bg-slate-900 text-white p-8 rounded-[40px] shadow-2xl shadow-slate-900/30 space-y-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative">
-              <h3 className="text-xl font-black tracking-tight">Estado docente</h3>
-              <p className="text-xs text-white/60 font-medium mt-1">Usuarios esperando aprobación para modo diseño.</p>
+      {activeTab === 'messages' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Buzón de Soporte</h2>
+            <div className="bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm text-[10px] font-black uppercase text-slate-400">
+              {messages.length} Mensajes recibidos
             </div>
-            
-            <div className="space-y-4 relative">
-              {users.filter(u => u.roleRequest === 'pending').length === 0 ? (
-                <div className="bg-white/5 border border-white/10 rounded-3xl p-6 text-center">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Sin solicitudes pendientes</p>
-                </div>
-              ) : (
-                users.filter(u => u.roleRequest === 'pending').map(user => (
-                  <div key={user.uid} className="bg-white/10 border border-white/20 p-4 rounded-3xl flex items-center justify-between">
-                    <div className="truncate pr-4">
-                      <p className="text-xs font-bold truncate">{user.email}</p>
-                      <p className="text-[8px] uppercase font-black text-white/40 tracking-widest">Aspirante Docente</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {messages.map((msg) => (
+              <motion.div 
+                layout
+                key={msg.id}
+                className="bg-white border border-slate-100 p-8 rounded-[40px] hover:shadow-xl hover:shadow-slate-200/50 transition-all space-y-6"
+              >
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                  <div className="flex items-start gap-5">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${
+                      msg.userRole === 'docente' ? 'bg-brand-primary' : 'bg-blue-500'
+                    }`}>
+                      {msg.userRole === 'docente' ? <UserCog size={24} /> : <Users size={24} />}
                     </div>
-                    <button 
-                      onClick={() => handleRoleUpdate(user.uid, 'teacher')}
-                      className="bg-brand-primary p-2 rounded-xl"
-                    >
-                      <CheckCircle size={14} />
-                    </button>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-bold text-slate-900 text-lg">{msg.name}</h3>
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
+                          msg.userRole === 'docente' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-blue-50 text-blue-600'
+                        }`}>
+                          {msg.userRole}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-400 font-medium">{msg.email}</p>
+                    </div>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-3xl">
-            <h4 className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-3">Resumen de Facultad</h4>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Exámenes promedio/docente</span>
-                <span className="font-black text-slate-900">{(stats.totalExams / (stats.teachers || 1)).toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Ratio Docente/Estudiante</span>
-                <span className="font-black text-slate-900">1:{(stats.students / (stats.teachers || 1)).toFixed(0)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-slate-100 p-6 rounded-3xl space-y-4 shadow-sm">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-              <CheckCircle size={14} className="text-emerald-500" /> Resultados Recientes
-            </h4>
-            <div className="space-y-3">
-              {submissions.slice(0, 5).map((sub, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                  <div className="truncate">
-                    <p className="text-[10px] font-bold text-slate-900 truncate">Estudiante: {sub.studentId.substring(0, 8)}...</p>
-                    <p className="text-[8px] text-slate-400 uppercase font-bold">Puntaje: {sub.score}%</p>
-                  </div>
-                  <div className={`text-[10px] font-black ${sub.score >= 60 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {sub.score >= 60 ? 'APROBADO' : 'REPROBADO'}
+                  <div className="text-right">
+                    <p className="text-xs font-black text-slate-300 uppercase tracking-widest">Enviado el</p>
+                    <p className="text-sm font-bold text-slate-900">
+                      {msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleString() : 'Recientemente'}
+                    </p>
                   </div>
                 </div>
-              ))}
-              {submissions.length === 0 && <p className="text-[10px] text-slate-400 italic">No hay resultados aún.</p>}
-            </div>
+
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 relative">
+                  <div className="absolute top-0 left-8 -translate-y-1/2 w-8 h-8 bg-brand-primary text-white flex items-center justify-center rounded-lg shadow-lg">
+                    <MessageSquare size={16} />
+                  </div>
+                  <p className="text-slate-700 font-medium leading-relaxed mt-2 whitespace-pre-wrap">{msg.message}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Asunto:</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full">
+                    {msg.subject || 'Consulta General'}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+            {messages.length === 0 && (
+              <div className="p-20 text-center space-y-4 bg-white rounded-[40px] border border-slate-100">
+                <Mail className="mx-auto text-slate-100" size={64} />
+                <p className="text-slate-400 text-sm font-medium italic">No hay mensajes de soporte en este momento.</p>
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
