@@ -10,18 +10,29 @@ import {
   Plus
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { ExamParams, QuestionType, QuestionDistribution } from '../types';
+import { ExamParams, QuestionType, QuestionDistribution, Course } from '../types';
 
 interface ExamCreatorProps {
   onBack: () => void;
   onGenerate: (params: ExamParams) => Promise<void>;
   isGenerating: boolean;
+  courses: Course[];
+  initialCourseId?: string;
 }
 
-export const ExamCreator: React.FC<ExamCreatorProps> = ({ onBack, onGenerate, isGenerating }) => {
+export const ExamCreator: React.FC<ExamCreatorProps> = ({ 
+  onBack, 
+  onGenerate, 
+  isGenerating, 
+  courses,
+  initialCourseId
+}) => {
+  const initialCourse = initialCourseId ? courses.find(c => c.id === initialCourseId) : courses[0];
+
   const [params, setParams] = useState<ExamParams>({
     topic: '',
-    course: 'Fundamentos de programación',
+    course: initialCourse?.name || 'Sin curso',
+    courseId: initialCourse?.id || '',
     semester: '2026-1',
     difficulty: 'medio',
     numQuestions: 5,
@@ -34,6 +45,13 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onBack, onGenerate, is
       true_false: 0
     }
   });
+
+  const handleCourseChange = (courseId: string) => {
+    const selectedCourse = courses.find(c => c.id === courseId);
+    if (selectedCourse) {
+      setParams({ ...params, courseId: selectedCourse.id, course: selectedCourse.name });
+    }
+  };
 
   const updateDistribution = (type: keyof QuestionDistribution, value: number) => {
     const newCount = Math.max(0, value);
@@ -88,16 +106,13 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({ onBack, onGenerate, is
                 <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase">Curso</label>
                 <select
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/5 transition-all text-sm font-bold appearance-none"
-                  value={params.course}
-                  onChange={e => setParams({...params, course: e.target.value})}
+                  value={params.courseId}
+                  onChange={e => handleCourseChange(e.target.value)}
                 >
-                  <option>Fundamentos de algoritmia</option>
-                  <option>Fundamentos de programación</option>
-                  <option>Tecnicas avanzadas de programación</option>
-                  <option>Redes de computadores</option>
-                  <option>Diseño y desarrollo de software educativo 1</option>
-                  <option>Diseño y desarrollo de software educativo 2</option>
-                  <option>Diseño y desarrollo de software educativo 3</option>
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                  {courses.length === 0 && <option value="">No tienes cursos creados</option>}
                 </select>
               </div>
 

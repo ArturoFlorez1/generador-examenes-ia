@@ -6,25 +6,48 @@ import {
   ChevronRight, 
   BrainCircuit, 
   BookOpen, 
-  Users, 
-  Settings,
   GraduationCap,
   Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Exam } from '../types';
+import { Exam, Course } from '../types';
 import { jsPDF } from 'jspdf';
 import { UNI_LOGO_URL } from '../constants';
+import { CourseManager } from './CourseManager';
+import { EnrollmentManager } from './EnrollmentManager';
+import { CourseDetail } from './CourseDetail';
 
 interface DashboardProps {
   exams: Exam[];
   role: 'teacher' | 'student' | 'admin';
-  onCreateNew: () => void;
+  courses: Course[];
+  enrolledCourses: Course[];
+  onCreateNew: (courseId?: string) => void;
   onViewExam: (exam: Exam) => void;
   onDeleteExam: (id: string) => void;
+  onCreateCourse: (name: string, description: string) => Promise<void>;
+  onDeleteCourse: (id: string) => Promise<void>;
+  onEnroll: (code: string) => Promise<void>;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ exams, role, onCreateNew, onViewExam, onDeleteExam }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  exams, 
+  role, 
+  courses, 
+  enrolledCourses,
+  onCreateNew, 
+  onViewExam, 
+  onDeleteExam,
+  onCreateCourse,
+  onDeleteCourse,
+  onEnroll
+}) => {
+  const [selectedCourseId, setSelectedCourseId] = React.useState<string | null>(null);
+
+  const selectedCourse = React.useMemo(() => {
+    return [...courses, ...enrolledCourses].find(c => c.id === selectedCourseId);
+  }, [selectedCourseId, courses, enrolledCourses]);
+
   const downloadExam = async (exam: Exam, includeAnswers = false) => {
     const doc = new jsPDF();
     const margin = 20;
@@ -243,151 +266,66 @@ export const Dashboard: React.FC<DashboardProps> = ({ exams, role, onCreateNew, 
     <div className="space-y-10 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-8 gap-4">
         <div className="space-y-1">
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Instrumentos de Evaluación</h1>
-          <p className="text-slate-500 font-medium">Repositorio institucional de exámenes basados en evidencias.</p>
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">EduGeniusAI</h1>
+          <p className="text-slate-500 font-medium">Sistema académico inteligente para la gestión de cursos y evaluaciones.</p>
         </div>
         
-        {role !== 'student' && (
-          <button 
-            onClick={onCreateNew}
-            className="btn-primary group flex items-center gap-2 self-start"
-          >
-            <Plus size={20} className="group-hover:rotate-90 transition-transform" />
-            Nuevo Instrumento
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Removed global Nuevo Examen button - exams must be created within courses now */}
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard 
-          icon={<FileText className="text-emerald-600" />} 
-          label="Total Exámenes" 
-          value={exams.length} 
-          trend={exams.length > 0 ? `+ ${exams.length} esta semana` : undefined}
-        />
-        <StatsCard 
-          icon={<BookOpen className="text-amber-600" />} 
-          label="Cursos Activos" 
-          value={new Set(exams.map(e => e.course)).size} 
-        />
-        <StatsCard 
-          icon={<BrainCircuit className="text-blue-600" />} 
-          label="Nivel Promedio" 
-          value="Intermedio" 
-        />
-        <StatsCard 
-          icon={<GraduationCap className="text-indigo-600" />} 
-          label="Evidencias Totales" 
-          value={exams.reduce((acc, e) => acc + e.questions.length, 0)} 
-        />
-      </div>
-
-      <section className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <div className="w-2 h-8 bg-brand-primary rounded-full" />
-            Explorar Instrumentos
-          </h2>
-          <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
-            <button className="px-3 py-1 text-xs font-bold text-slate-600 bg-white rounded shadow-sm">Todos</button>
-            <button className="px-3 py-1 text-xs font-bold text-slate-400">Programación</button>
-            <button className="px-3 py-1 text-xs font-bold text-slate-400">Informática</button>
-          </div>
-        </div>
-
-        {exams.length === 0 ? (
-          <div className="card p-12 text-center space-y-4">
-            <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto text-slate-400">
-              <FileText size={32} />
-            </div>
-            <div className="max-w-xs mx-auto">
-              <h3 className="text-lg font-medium text-slate-900">No hay exámenes aún</h3>
-              <p className="text-slate-500 text-sm">Comienza generando tu primer examen basado en evidencias para tu curso.</p>
-            </div>
-            {role !== 'student' && (
-              <button 
-                onClick={onCreateNew}
-                className="btn-secondary"
-              >
-                Generar ahora
-              </button>
-            )}
-          </div>
+      <div className="space-y-6">
+        {selectedCourse ? (
+          <CourseDetail 
+            course={selectedCourse}
+            role={role}
+            exams={exams}
+            onBack={() => setSelectedCourseId(null)}
+            onViewExam={onViewExam}
+            onDeleteExam={onDeleteExam}
+            onCreateExam={() => onCreateNew(selectedCourse.id)}
+            onDownloadExam={downloadExam}
+          />
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            <AnimatePresence>
-              {exams.map((exam) => (
-                <motion.div
-                  key={exam.id}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="card p-5 flex flex-col md:flex-row md:items-center justify-between hover:border-brand-primary/50 transition-colors cursor-pointer group gap-4"
-                  onClick={() => onViewExam(exam)}
-                >
-                  <div className="flex items-center gap-5">
-                    <div className="bg-brand-primary/10 p-4 rounded-2xl text-brand-primary group-hover:bg-brand-primary group-hover:text-white transition-all duration-300">
-                      <FileText size={28} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-xl text-slate-900 group-hover:text-brand-primary transition-colors">{exam.title}</h3>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1 font-semibold tracking-wider">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded italic">{exam.course}</span>
-                        <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                        <span className="bg-slate-100 px-2 py-0.5 rounded">{exam.semester}</span>
-                        <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                        <span className={`px-2 py-0.5 rounded capitalize ${
-                          exam.difficulty === 'alto' ? 'bg-red-50 text-red-600' : 
-                          exam.difficulty === 'medio' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'
-                        }`}>{exam.difficulty}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {role !== 'student' && (
-                      <>
-                        <button 
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            await downloadExam(exam, true);
-                          }}
-                          className="p-3 text-brand-primary hover:bg-brand-primary/5 rounded-xl transition-all border border-brand-primary/20 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
-                          title="Descargar con respuestas"
-                        >
-                          <Key size={14} /> Respuestas
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteExam(exam.id);
-                          }}
-                          className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-slate-100 shadow-sm"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </>
-                    )}
-                    <button 
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        await downloadExam(exam, false);
-                      }}
-                      className="p-3 text-slate-500 hover:text-brand-primary hover:bg-brand-primary/5 rounded-xl transition-all border border-slate-100 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
-                      title="Descargar para impresión"
-                    >
-                      <FileText size={14} /> PDF
-                    </button>
-                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors">
-                      <ChevronRight size={20} />
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+          <div className="space-y-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <StatsCard 
+                icon={<FileText className="text-emerald-600" />} 
+                label="Exámenes Disponibles" 
+                value={exams.length} 
+              />
+              <StatsCard 
+                icon={<BookOpen className="text-amber-600" />} 
+                label="Cursos" 
+                value={role === 'student' ? enrolledCourses.length : courses.length} 
+              />
+              <StatsCard 
+                icon={<BrainCircuit className="text-blue-600" />} 
+                label="Nivel Promedio" 
+                value="Intermedio" 
+              />
+            </div>
+
+            <div className="animate-in slide-in-from-bottom duration-500">
+              {role === 'student' ? (
+                <EnrollmentManager 
+                  enrolledCourses={enrolledCourses} 
+                  onEnroll={onEnroll} 
+                  onSelectCourse={(id) => setSelectedCourseId(id)}
+                />
+              ) : (
+                <CourseManager 
+                  courses={courses} 
+                  onCreateCourse={onCreateCourse} 
+                  onDeleteCourse={onDeleteCourse} 
+                  onSelectCourse={(id) => setSelectedCourseId(id)}
+                />
+              )}
+            </div>
           </div>
         )}
-      </section>
+      </div>
     </div>
   );
 };

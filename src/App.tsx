@@ -19,41 +19,118 @@ import { AdminPanel } from './components/AdminPanel';
 import { HelpCenter } from './components/HelpCenter';
 import { Contact } from './components/Contact';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { AboutUs } from './components/AboutUs';
 import { Login } from './components/Login';
 import { generateExamQuestions } from './services/geminiService';
-import { examsService } from './services/firestoreService';
+import { examsService, coursesService } from './services/firestoreService';
 import { useAuth } from './lib/AuthContext';
-import { Exam, ExamParams } from './types';
+import { Exam, ExamParams, Course } from './types';
 import { UNI_LOGO_URL } from './constants';
 
 export default function App() {
-  const { user, profile, loading: authLoading, requestDocente, logout } = useAuth();
+  const { user, profile, loading: authLoading, requestDocente, updateProfile, logout } = useAuth();
   const [role, setRole] = useState<'teacher' | 'student' | 'admin'>('student');
-  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin' | 'help' | 'contact' | 'privacy'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin' | 'help' | 'contact' | 'about' | 'privacy'>('dashboard');
   const [exams, setExams] = useState<Exam[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [currentExam, setCurrentExam] = useState<Partial<Exam> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [showRoleRequest, setShowRoleRequest] = useState(() => {
+    const hidden = localStorage.getItem('hide_role_request');
+    return !hidden;
+  });
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [selectedCourseForExam, setSelectedCourseForExam] = useState<string | null>(null);
 
   // Load and Sync with Firestore
   useEffect(() => {
-    if (!user) return;
+    if (!user || !profile) {
+      setExams([]);
+      setCourses([]);
+      setEnrolledCourses([]);
+      return;
+    }
     
-    // Set initial role from profile
-    if (profile?.role) {
-      setRole(profile.role);
-      // If admin, default to admin panel
-      if (profile.role === 'admin') {
-        setView('admin');
-      }
+    // Set role from profile
+    setRole(profile.role || 'student');
+    
+    // If admin, default to admin panel
+    if (profile.role === 'admin' && view === 'dashboard') {
+      setView('admin');
     }
 
-    const unsubscribe = examsService.subscribeToUserExams(user.uid, (data) => {
-      setExams(data);
-    });
+    const unsubscribers: (() => void)[] = [];
 
-    return () => unsubscribe();
+    if (profile?.role === 'teacher' || profile?.role === 'admin') {
+      unsubscribers.push(
+        examsService.subscribeToUserExams(user.uid, (data) => {
+          setExams(data);
+        })
+      );
+      unsubscribers.push(
+        coursesService.subscribeToTeacherCourses(user.uid, (data) => {
+          setCourses(data);
+        })
+      );
+    } else if (profile?.role === 'student' || !profile?.role) {
+      // Student role or default
+      let innerExamUnsubscribe: (() => void) | null = null;
+      
+      unsubscribers.push(
+        coursesService.subscribeToStudentEnrollments(user.uid, (courseIds) => {
+          // Wrap async logic to avoid unhandled rejections in onSnapshot callback
+          const syncStudentData = async () => {
+            try {
+              const fullCourses = await coursesService.getCoursesByIds(courseIds);
+              setEnrolledCourses(fullCourses);
+              
+              // Clear previous nested subscription if any
+              if (innerExamUnsubscribe) {
+                innerExamUnsubscribe();
+                innerExamUnsubscribe = null;
+              }
+              
+              if (courseIds.length > 0) {
+                // Subscribe to exams for these courses
+                innerExamUnsubscribe = examsService.subscribeToEnrolledExams(courseIds, (data) => {
+                  setExams(data);
+                });
+              } else {
+                setExams([]);
+              }
+            } catch (err) {
+              console.error("Critical error syncing student courses/exams:", err);
+              setGlobalError("No pudimos cargar tus cursos o exámenes. Esto podría ser un problema de permisos o de red.");
+              setExams([]);
+              setEnrolledCourses([]);
+            }
+          };
+          
+          syncStudentData();
+        })
+      );
+
+      // Final cleanup for the inner one
+      unsubscribers.push(() => {
+        if (innerExamUnsubscribe) innerExamUnsubscribe();
+      });
+    }
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
   }, [user, profile]);
+
+  const handleUpdateName = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const fullName = formData.get('fullName') as string;
+    if (fullName.trim()) {
+      await updateProfile({ fullName: fullName.trim() });
+    }
+  };
 
   if (authLoading) {
     return (
@@ -79,6 +156,7 @@ export default function App() {
         createdAt: Date.now()
       });
       setView('review');
+      setSelectedCourseForExam(null); // Clear after generation
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
@@ -93,9 +171,42 @@ export default function App() {
   };
 
   const handleDeleteExam = async (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este examen?')) {
+    if (!confirm('¿Estás seguro de que deseas eliminar este examen?')) return;
+    try {
       await examsService.delete(id);
+    } catch (err) {
+      console.error("Error deleting exam:", err);
+      alert("Error al eliminar el examen");
     }
+  };
+
+  const handleCreateCourse = async (name: string, description: string) => {
+    await coursesService.create(name, description);
+  };
+
+  const handleDeleteCourse = async (id: string) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este curso? Se perderán todas las inscripciones asociadas.')) return;
+    try {
+      await coursesService.delete(id);
+    } catch (err) {
+      console.error("Error deleting course:", err);
+      alert("Error al eliminar el curso");
+    }
+  };
+
+  const handleEnroll = async (code: string) => {
+    try {
+      await coursesService.enroll(code, profile?.fullName || user?.displayName || undefined);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al inscribirse');
+    }
+  };
+
+  const handleCreateNewExam = (courseId?: string) => {
+    if (courseId) {
+      setSelectedCourseForExam(courseId);
+    }
+    setView('creator');
   };
 
   return (
@@ -117,9 +228,9 @@ export default function App() {
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-black text-slate-900 tracking-tighter leading-none uppercase">
-                  Universidad de <span className="text-[#00843D]">Córdoba</span>
+                  EduGenius<span className="text-[#00843D]">AI</span>
                 </h1>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 italic">Comprometidos con el desarrollo regional</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 italic">Gestión Académica e IA Educativa</p>
               </div>
             </div>
           </div>
@@ -154,19 +265,74 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-12">
+        {/* Name Prompt for Students */}
+        {role === 'student' && !profile?.fullName && (
+          <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
+            >
+              <div className="bg-brand-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center text-brand-primary mb-6">
+                <GraduationCap size={32} />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">¡Bienvenido Estudiante!</h2>
+              <p className="text-slate-500 mb-8 font-medium">Por favor, ingresa tu nombre completo para completar tu registro en el sistema.</p>
+              
+              <form onSubmit={handleUpdateName} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre Completo</label>
+                  <input 
+                    required
+                    name="fullName"
+                    type="text"
+                    placeholder="Ej: Juan Pérez"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 outline-none focus:border-brand-primary transition-all font-bold text-slate-700"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  className="w-full bg-brand-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                  Confirmar Registro
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {globalError && (
+          <div className="mb-8 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl flex items-center justify-between">
+            <p className="text-sm font-medium">{globalError}</p>
+            <button onClick={() => setGlobalError(null)} className="p-1 hover:bg-red-100 rounded-full">
+              <X size={16} />
+            </button>
+          </div>
+        )}
         {view === 'dashboard' && role !== 'admin' && (
           <div className="space-y-12 animate-in fade-in duration-700">
-            {role === 'student' && profile?.roleRequest !== 'pending' && profile?.roleRequest !== 'approved' && (
+            {role === 'student' && showRoleRequest && profile?.roleRequest !== 'pending' && profile?.roleRequest !== 'approved' && (
               <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-brand-primary text-white p-8 rounded-3xl shadow-xl shadow-brand-primary/20 flex flex-col md:flex-row items-center justify-between gap-8"
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                className="bg-brand-primary text-white p-8 rounded-3xl shadow-xl shadow-brand-primary/20 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden"
               >
+                <button 
+                  onClick={() => {
+                    setShowRoleRequest(false);
+                    localStorage.setItem('hide_role_request', 'true');
+                  }}
+                  className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-colors"
+                  title="Ocultar permanentemente"
+                >
+                  <X size={20} />
+                </button>
                 <div className="flex items-center gap-6">
                   <div className="bg-white/20 p-5 rounded-2xl">
                     <GraduationCap size={40} />
                   </div>
-                  <div>
+                  <div className="pr-8">
                     <h3 className="text-xl font-black uppercase tracking-tight">¿Eres docente de la facultad?</h3>
                     <p className="text-sm font-medium text-white/80">Solicita tu cambio de rol para empezar a diseñar instrumentos de evaluación con IA.</p>
                   </div>
@@ -215,12 +381,17 @@ export default function App() {
             <Dashboard 
               exams={exams}
               role={role}
-              onCreateNew={() => setView('creator')} 
+              courses={courses}
+              enrolledCourses={enrolledCourses}
+              onCreateNew={handleCreateNewExam} 
               onViewExam={(exam) => {
                 setCurrentExam(exam);
                 setView('player');
               }}
               onDeleteExam={handleDeleteExam}
+              onCreateCourse={handleCreateCourse}
+              onDeleteCourse={handleDeleteCourse}
+              onEnroll={handleEnroll}
             />
           </div>
         )}
@@ -234,6 +405,8 @@ export default function App() {
             onBack={() => setView('dashboard')} 
             onGenerate={handleGenerate}
             isGenerating={isGenerating}
+            courses={courses}
+            initialCourseId={selectedCourseForExam || undefined}
           />
         )}
 
@@ -271,6 +444,10 @@ export default function App() {
         {view === 'privacy' && (
           <PrivacyPolicy onBack={() => setView('dashboard')} />
         )}
+
+        {view === 'about' && (
+          <AboutUs onBack={() => setView('dashboard')} />
+        )}
       </main>
 
       {/* Footer */}
@@ -281,7 +458,7 @@ export default function App() {
               <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center text-white">
                 <BrainCircuit size={18} />
               </div>
-              <span className="text-xl font-bold text-slate-900">EduGenius AI</span>
+              <span className="text-xl font-bold text-slate-900">EduGeniusAI</span>
             </div>
             <p className="text-slate-500 text-sm max-w-sm">
               Potenciando la educación superior con inteligencia artificial basada en evidencias. 
@@ -298,9 +475,10 @@ export default function App() {
           <div className="space-y-4">
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Soporte</h4>
             <ul className="text-sm text-slate-500 space-y-2">
-              <li><button onClick={() => setView('help')} className="hover:text-brand-primary transition-colors text-left">Centro de Ayuda</button></li>
-              <li><button onClick={() => setView('contact')} className="hover:text-brand-primary transition-colors text-left">Contacto</button></li>
-              <li><button onClick={() => setView('privacy')} className="hover:text-brand-primary transition-colors text-left">Privacidad</button></li>
+              <li><button onClick={() => setView('help')} className="hover:text-brand-primary transition-colors text-left font-medium">Centro de Ayuda</button></li>
+              <li><button onClick={() => setView('contact')} className="hover:text-brand-primary transition-colors text-left font-medium">Contacto</button></li>
+              <li><button onClick={() => setView('about')} className="hover:text-brand-primary transition-colors text-left font-medium">Acerca de nosotros</button></li>
+              <li><button onClick={() => setView('privacy')} className="hover:text-brand-primary transition-colors text-left font-medium">Privacidad</button></li>
             </ul>
           </div>
         </div>

@@ -33,7 +33,10 @@ import {
   Line
 } from 'recharts';
 
+import { useAuth } from '../lib/AuthContext';
+
 export const AdminPanel: React.FC = () => {
+  const { profile } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -43,6 +46,15 @@ export const AdminPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'metrics' | 'users' | 'exams' | 'messages'>('metrics');
 
   const fetchData = async () => {
+    if (profile?.role !== 'admin' && profile?.email !== 'florezarturo1816@gmail.com') {
+       console.warn("Unauthorized access attempt to AdminPanel data.");
+       setLoading(false);
+       return;
+    }
+    
+    // Basic guard to prevent unnecessary calls if component is mounted by accident or during transitions
+    if (loading === false && users.length > 0) return; // Prevent double loads if not needed
+    
     setLoading(true);
     try {
       const [usersSnap, examsSnap, subSnap, msgSnap] = await Promise.all([
@@ -318,6 +330,68 @@ export const AdminPanel: React.FC = () => {
               )}
             </div>
           </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Detailed Teacher List */}
+            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                  <UserCog className="text-brand-primary" /> Docentes Vinculados
+                </h3>
+              </div>
+              <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-hide">
+                {users.filter(u => u.role === 'teacher' || (u.role === 'admin' && u.email !== 'florezarturo1816@gmail.com')).map((u, i) => {
+                  const teacherExams = exams.filter(e => e.creatorId === u.uid).length;
+                  // We would need courses collection but for now we have exams
+                  return (
+                    <div key={i} className="flex items-center justify-between p-5 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-brand-primary/30 transition-all">
+                      <div className="truncate pr-4">
+                        <p className="text-sm font-black text-slate-900 truncate uppercase tracking-tight">{u.fullName || 'Docente sin nombre'}</p>
+                        <p className="text-[10px] text-slate-400 font-bold font-mono">{u.email}</p>
+                      </div>
+                      <div className="bg-white px-4 py-2 rounded-2xl border border-slate-100 flex flex-col items-center">
+                        <span className="text-[14px] font-black text-brand-primary leading-none">{teacherExams}</span>
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Instrumentos</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Detailed Student List */}
+            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                  <Users className="text-brand-primary" /> Estudiantes Registrados
+                </h3>
+              </div>
+              <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-hide">
+                {users.filter(u => u.role === 'student' || !u.role).map((u, i) => {
+                  const studentSubmissions = submissions.filter(s => s.studentId === u.uid).length;
+                  const studentCourses = u.enrolledCourseIds?.length || 0;
+                  return (
+                    <div key={i} className="flex items-center justify-between p-5 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-blue-500/30 transition-all">
+                      <div className="truncate pr-4">
+                        <p className="text-sm font-black text-slate-900 truncate uppercase tracking-tight">{u.fullName || 'Estudiante sin nombre'}</p>
+                        <p className="text-[10px] text-slate-400 font-bold font-mono">{u.email}</p>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="bg-white px-3 py-2 rounded-2xl border border-slate-100 flex flex-col items-center min-w-[70px]">
+                          <span className="text-[14px] font-black text-blue-500 leading-none">{studentCourses}</span>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Cursos</span>
+                        </div>
+                        <div className="bg-white px-3 py-2 rounded-2xl border border-slate-100 flex flex-col items-center min-w-[70px]">
+                          <span className="text-[14px] font-black text-emerald-500 leading-none">{studentSubmissions}</span>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Tareas</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -352,7 +426,10 @@ export const AdminPanel: React.FC = () => {
                       {user.role === 'admin' ? <ShieldCheck size={20} /> : user.role === 'teacher' ? <UserCog size={20} /> : <Users size={20} />}
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-900 text-sm">{user.email}</h3>
+                      <h3 className="font-bold text-slate-900 text-sm">{user.fullName || user.email}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-slate-400 font-medium">{user.email}</span>
+                      </div>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
                           user.role === 'admin' ? 'bg-slate-900 text-white' : user.role === 'teacher' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-blue-50 text-blue-600'

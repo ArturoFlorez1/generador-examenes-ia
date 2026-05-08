@@ -16,7 +16,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() <= 128;
     }
 
     function incoming() {
@@ -32,23 +32,60 @@ service cloud.firestore {
     }
 
     // Role helpers
-    function getUserData(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data;
-    }
-
     function isAdmin() {
       return isSignedIn() && (
-        (request.auth.token.get('email', '').lower() == 'florezarturo1816@gmail.com') || 
+        request.auth.token.email == 'florezarturo1816@gmail.com' ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin')
       );
     }
 
     function isTeacher() {
-      return isSignedIn() && (getUserData(request.auth.uid).role == 'teacher' || isAdmin());
+      return isSignedIn() && (
+        isAdmin() || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'teacher')
+      );
+    }
+
+    function isEnrolled(courseId) {
+      return isSignedIn() && (
+        isAdmin() ||
+        exists(/databases/$(database)/documents/enrollments/$(request.auth.uid + '_' + courseId))
+      );
+    }
+
+    function getEnrolledIds() {
+      return (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))) 
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('enrolledCourseIds', []) 
+        : [];
+    }
+
+    function isCourseOwner(courseId) {
+      return isSignedIn() && exists(/databases/$(database)/documents/courses/$(courseId)) 
+        && get(/databases/$(database)/documents/courses/$(courseId)).data.creatorId == request.auth.uid;
     }
 
     // Phase 4: Validation Blueprints
+    function isValidCourse(data) {
+      return data.keys().hasAll(['id', 'name', 'code', 'creatorId', 'createdAt'])
+        && data.keys().size() >= 5
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 256
+        && data.code is string && data.code.size() <= 32
+        && data.creatorId == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidEnrollment(data, id) {
+      return data.keys().hasAll(['id', 'studentId', 'courseId', 'enrolledAt'])
+        && data.keys().size() >= 4
+        && data.id == id
+        && data.id == data.studentId + '_' + data.courseId
+        && data.studentId == request.auth.uid
+        && data.enrolledAt is timestamp;
+    }
+
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) 
         && data.keys().size() >= 4
@@ -63,8 +100,8 @@ service cloud.firestore {
       return (
         incoming.role == existing.role || isAdmin()
       ) && (
-        // Any user can update their request status to pending
-        incoming.diff(existing).affectedKeys().hasOnly(['roleRequest', 'updatedAt']) ||
+        // Users can update their request status OR their enrollment list OR timestamp
+        incoming.diff(existing).affectedKeys().hasOnly(['roleRequest', 'updatedAt', 'enrolledCourseIds']) ||
         isAdmin()
       );
     }
@@ -79,46 +116,74 @@ service cloud.firestore {
     }
 
     function isValidExam(data) {
-      return data.keys().hasAll(['id', 'title', 'topic', 'course', 'creatorId', 'createdAt'])
-        && data.keys().size() >= 6
+      let coursePath = /databases/$(database)/documents/courses/$(data.courseId);
+      return data.keys().hasAll(['id', 'title', 'topic', 'course', 'courseId', 'creatorId', 'createdAt'])
+        && data.keys().size() >= 7
         && data.id is string && data.id.size() <= 128
+        && data.courseId is string && data.courseId.size() <= 128
         && data.title is string && data.title.size() <= 512
         && data.topic is string && data.topic.size() <= 512
-        && data.course is string && data.course.size() <= 512
         && data.creatorId == request.auth.uid
         && data.createdAt is timestamp
-        // Array Guard: Max 50 questions to prevent resource exhaustion
-        && (!('questions' in data) || (data.questions is list && data.questions.size() <= 50 && (data.questions.size() == 0 || isValidQuestion(data.questions[0]))));
+        // Verify course exists and user owns it
+        && exists(coursePath)
+        && get(coursePath).data.creatorId == request.auth.uid
+        // Array Guard: Max 50 questions
+        && (!('questions' in data) || (data.questions is list && data.questions.size() <= 50));
     }
 
     // 1. Users Collection
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin() || isTeacher());
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().uid == userId && incoming().uid == request.auth.uid && incoming().createdAt == request.time && incoming().role == 'student';
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().uid == userId && incoming().uid == request.auth.uid && incoming().createdAt == request.time;
       allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming()) 
         && incoming().uid == userId
         && (isAdmin() || incoming().uid == request.auth.uid)
-        && isValidRoleAction(incoming(), existing());
+        && (
+          isValidRoleAction(incoming(), existing()) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'updatedAt'])
+        );
     }
 
     // 2. Exams Collection
     match /exams/{examId} {
-      allow get: if isSignedIn() && isValidId(examId);
-      // Secure List Query: allow admins or owners
-      allow list: if isAdmin() || (isSignedIn() && resource.data.creatorId == request.auth.uid); 
+      allow get: if isSignedIn() && (
+        isOwner(resource.data.creatorId) || 
+        isAdmin() || 
+        isEnrolled(resource.data.courseId)
+      );
+      
+      allow list: if isAdmin() || (isSignedIn() && (
+        resource.data.creatorId == request.auth.uid ||
+        isEnrolled(resource.data.courseId)
+      )); 
 
-      allow create: if isSignedIn() && isValidId(examId) && isValidExam(incoming()) && incoming().createdAt == request.time;
+      allow create: if isTeacher() && isValidId(examId) && isValidExam(incoming()) && incoming().createdAt == request.time;
       
       allow update: if isSignedIn() && isValidId(examId) && isOwner(existing().creatorId) && isValidExam(incoming())
         && incoming().creatorId == existing().creatorId
-        && incoming().createdAt == existing().createdAt
         && (
-          // Action: Edit metadata
-          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'topic', 'course', 'questions', 'semester', 'difficulty'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'topic', 'course', 'courseId', 'questions', 'semester', 'difficulty', 'teacherName', 'showTeacherInPdf'])
         );
 
       allow delete: if isSignedIn() && isValidId(examId) && (isOwner(existing().creatorId) || isAdmin());
+    }
+
+    // 2.1 Courses Collection
+    match /courses/{courseId} {
+      allow get, list: if isSignedIn();
+      allow create: if isTeacher() && isValidCourse(incoming()) && incoming().id == courseId && incoming().createdAt == request.time;
+      allow update: if (isOwner(existing().creatorId) || isAdmin()) && isValidCourse(incoming());
+      allow delete: if isAdmin() || isOwner(existing().creatorId);
+    }
+
+    // 2.2 Enrollments Collection
+    match /enrollments/{enrollmentId} {
+      allow get: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin() || isCourseOwner(resource.data.courseId));
+      allow list: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || isCourseOwner(resource.data.courseId)));
+      allow create: if isSignedIn() && isValidEnrollment(incoming(), enrollmentId) && incoming().enrolledAt == request.time;
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid) || (isSignedIn() && isCourseOwner(resource.data.courseId));
     }
 
     // 3. Submissions Collection

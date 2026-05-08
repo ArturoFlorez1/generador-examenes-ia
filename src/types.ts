@@ -31,13 +31,51 @@ export interface Exam {
   id: string;
   title: string;
   topic: string;
-  course: string;
+  course: string; // Course name for legacy/display
+  courseId: string; // Foreign key to Course
   semester: string;
   difficulty: string;
   questions: Question[];
   createdAt: number;
+  creatorId: string;
   teacherName?: string;
   showTeacherInPdf?: boolean;
+}
+
+export interface Course {
+  id: string;
+  name: string;
+  description: string;
+  code: string; // Unique code for enrollment
+  creatorId: string;
+  createdAt: number;
+}
+
+export interface Enrollment {
+  id: string;
+  studentId: string;
+  courseId: string;
+  studentName?: string; // Cache for teacher display
+  enrolledAt: number;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  fullName?: string;
+  role: 'student' | 'teacher' | 'admin';
+  roleRequest: 'none' | 'pending' | 'approved' | 'rejected';
+  enrolledCourseIds: string[];
+  createdAt: any;
+}
+
+export interface ExamResults {
+  id: string;
+  examId: string;
+  studentId: string;
+  score: number;
+  answers: Record<string, string>;
+  submittedAt: number;
 }
 
 export interface QuestionDistribution {
@@ -53,6 +91,7 @@ export interface ExamParams {
   difficulty: 'bajo' | 'medio' | 'alto';
   numQuestions: number;
   course: string;
+  courseId: string;
   semester: string;
   questionTypes: QuestionType[];
   distribution?: QuestionDistribution;

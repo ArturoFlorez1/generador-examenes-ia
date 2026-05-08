@@ -42,13 +42,42 @@
         "title": { "type": "string" },
         "topic": { "type": "string" },
         "course": { "type": "string" },
+        "courseId": { "type": "string" },
         "semester": { "type": "string" },
         "difficulty": { "type": "string" },
         "questions": { "type": "array", "items": { "$ref": "Question" } },
         "creatorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "teacherName": { "type": "string" },
+        "showTeacherInPdf": { "type": "boolean" }
+      },
+      "required": ["id", "title", "topic", "course", "courseId", "creatorId", "createdAt"]
+    },
+    "Course": {
+      "title": "Academy Course",
+      "description": "A course created by a teacher where students can enroll.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "code": { "type": "string" },
+        "creatorId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "title", "topic", "course", "creatorId", "createdAt"]
+      "required": ["id", "name", "code", "creatorId", "createdAt"]
+    },
+    "Enrollment": {
+      "title": "Course Enrollment",
+      "description": "Mapping between a student and a course.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "enrolledAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentId", "courseId", "enrolledAt"]
     },
     "Submission": {
       "title": "Exam Attempt",
@@ -89,6 +118,14 @@
     "exams/{examId}": {
       "schema": "Exam",
       "description": "Generated exams."
+    },
+    "courses/{courseId}": {
+      "schema": "Course",
+      "description": "Academy courses."
+    },
+    "enrollments/{enrollmentId}": {
+      "schema": "Enrollment",
+      "description": "Student enrollments."
     },
     "submissions/{submissionId}": {
       "schema": "Submission",

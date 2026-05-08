@@ -1,6 +1,6 @@
 {
-  "name": "EduGenius: Generador de Exámenes Basado en Evidencias",
-  "description": "Herramienta inteligente para docentes de educación superior que genera, gestiona y califica exámenes alineados con objetivos de aprendizaje y evidencias.",
+  "name": "EduGeniusAI",
+  "description": "Sistema académico inteligente para la gestión de cursos, inscripciones y generación de exámenes basados en evidencias.",
   "requestFramePermissions": [],
   "majorCapabilities": ["AI-powered question generation", "Evidence-based assessment", "Automatic grading"]
 }

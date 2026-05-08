@@ -74,7 +74,9 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
       questions,
       teacherName,
       showTeacherInPdf,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      courseId: exam.courseId || '',
+      creatorId: exam.creatorId || ''
     } as Exam);
   };
 
