@@ -62,7 +62,7 @@ export const AboutUs: React.FC<AboutUsProps> = ({ onBack }) => {
             Transformando la evaluación con <span className="text-brand-primary italic">Inteligencia Artificial</span>
           </h2>
           <p className="text-slate-500 text-lg font-medium leading-relaxed">
-            EduGeniusAI nace como una iniciativa de innovación educativa dentro de la <b>Universidad de Córdoba</b>. 
+            EvaluAI nace como una iniciativa de innovación educativa dentro de la <b>Universidad de Córdoba</b>. 
             Nuestro programa busca optimizar los procesos de creación de instrumentos de evaluación 
             mediante el uso de IA generativa, permitiendo a los docentes centrarse en lo que realmente importa: 
             el aprendizaje de sus estudiantes.

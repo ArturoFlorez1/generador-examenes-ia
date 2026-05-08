@@ -1,5 +1,5 @@
 {
-  "name": "EduGeniusAI",
+  "name": "EvaluAI",
   "description": "Sistema académico inteligente para la gestión de cursos, inscripciones y generación de exámenes basados en evidencias.",
   "requestFramePermissions": [],
   "majorCapabilities": ["AI-powered question generation", "Evidence-based assessment", "Automatic grading"]

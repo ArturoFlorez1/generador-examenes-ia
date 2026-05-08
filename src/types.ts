@@ -73,6 +73,7 @@ export interface ExamResults {
   id: string;
   examId: string;
   studentId: string;
+  studentName?: string;
   score: number;
   answers: Record<string, string>;
   submittedAt: number;

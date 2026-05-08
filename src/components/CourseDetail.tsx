@@ -155,7 +155,11 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({
                       </div>
                       <div>
                         <h4 className="font-bold text-lg text-slate-900 group-hover:text-brand-primary transition-colors uppercase tracking-tight">{exam.title}</h4>
-                        <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-1 font-black uppercase tracking-widest">
+                        <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 mt-1 font-black uppercase tracking-widest">
+                          {exam.teacherName && (
+                            <span className="text-brand-primary">Docente: {exam.teacherName}</span>
+                          )}
+                          {exam.teacherName && <span className="w-1 h-1 bg-slate-200 rounded-full"></span>}
                           <span className={`${
                             exam.difficulty === 'alto' ? 'text-rose-500' : 
                             exam.difficulty === 'medio' ? 'text-amber-500' : 'text-emerald-500'
@@ -199,7 +203,7 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({
                         )}
                       </div>
                       <div className="w-10 h-10 bg-slate-50 flex items-center justify-center rounded-xl text-slate-300 group-hover:bg-brand-primary group-hover:text-white transition-all">
-                        <ChevronRight size={20} />
+                        <FileText size={20} />
                       </div>
                     </div>
                   </motion.div>

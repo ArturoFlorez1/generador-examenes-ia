@@ -42,7 +42,7 @@ export const Login: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">
-              EduGenius <span className="text-[#00843D]">AI</span>
+              EvaluAI <span className="text-[#00843D]">AI</span>
             </h1>
             <p className="text-slate-500 font-medium italic text-xs">Evaluación Basada en Evidencias</p>
           </div>

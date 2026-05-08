@@ -151,10 +151,11 @@ service cloud.firestore {
       allow get: if isSignedIn() && (
         isOwner(resource.data.creatorId) || 
         isAdmin() || 
+        isTeacher() ||
         isEnrolled(resource.data.courseId)
       );
       
-      allow list: if isAdmin() || (isSignedIn() && (
+      allow list: if isAdmin() || isTeacher() || (isSignedIn() && (
         resource.data.creatorId == request.auth.uid ||
         isEnrolled(resource.data.courseId)
       )); 

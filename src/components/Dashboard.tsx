@@ -266,7 +266,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="space-y-10 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-8 gap-4">
         <div className="space-y-1">
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">EduGeniusAI</h1>
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">EvaluAI</h1>
           <p className="text-slate-500 font-medium">Sistema académico inteligente para la gestión de cursos y evaluaciones.</p>
         </div>
         
@@ -323,6 +323,83 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 />
               )}
             </div>
+
+            {/* Global Exams for Teachers/Admins */}
+            {(role === 'teacher' || role === 'admin') && exams.length > 0 && (
+              <div className="space-y-6 pt-10 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                      <BrainCircuit size={24} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-900 tracking-tight">Explorar Instrumentos</h2>
+                      <p className="text-slate-500 text-sm font-medium">Banco de exámenes generados por la comunidad docente.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {exams.slice(0, 6).map((exam) => (
+                    <motion.div 
+                      key={exam.id}
+                      whileHover={{ y: -5 }}
+                      className="bg-white border border-slate-100 p-6 rounded-[32px] hover:shadow-xl hover:shadow-indigo-100/50 transition-all group relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50/50 rounded-full blur-2xl -translate-x-8 -translate-y-8" />
+                      
+                      <div className="flex justify-between items-start mb-4 relative z-10">
+                        <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600">
+                          <FileText size={20} />
+                        </div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">
+                          {exam.difficulty}
+                        </span>
+                      </div>
+
+                        <div className="space-y-2 relative z-10">
+                          <h4 className="font-black text-slate-900 leading-tight line-clamp-2 uppercase tracking-tight h-10">
+                            {exam.topic}
+                          </h4>
+                          {exam.teacherName && (
+                            <p className="text-[9px] font-bold text-brand-primary uppercase tracking-widest -mt-1">
+                              Por: {exam.teacherName}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <BookOpen size={12} />
+                            {exam.course}
+                          </div>
+                        </div>
+
+                      <div className="flex items-center gap-2 pt-6 mt-6 border-t border-slate-50 relative z-10">
+                        <button 
+                          onClick={() => onViewExam(exam)}
+                          className="flex-1 bg-slate-900 text-white py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary transition-all flex items-center justify-center gap-2"
+                        >
+                          Ver Detalles
+                        </button>
+                        <button 
+                          onClick={() => downloadExam(exam)}
+                          className="w-11 h-11 bg-slate-50 text-slate-400 rounded-2xl flex items-center justify-center hover:bg-emerald-50 hover:text-emerald-600 transition-all border border-slate-100"
+                          title="Descargar PDF"
+                        >
+                          <FileText size={20} />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {exams.length > 6 && (
+                  <div className="text-center pt-4">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      Se muestran los últimos {exams.length} instrumentos disponibles
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

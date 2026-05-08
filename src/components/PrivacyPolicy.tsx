@@ -19,7 +19,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
     {
       title: 'Privacidad de los Datos',
       icon: Lock,
-      content: 'Toda la información personal recolectada a través de la autenticación de Google se utiliza exclusivamente para identificar tu progreso y rol dentro de la plataforma EduGenius AI. No compartimos tus datos con terceros ni los utilizamos para fines comerciales.'
+      content: 'Toda la información personal recolectada a través de la autenticación de Google se utiliza exclusivamente para identificar tu progreso y rol dentro de la plataforma EvaluAI. No compartimos tus datos con terceros ni los utilizamos para fines comerciales.'
     },
     {
       title: 'Generación con IA',
@@ -87,7 +87,7 @@ export const PrivacyPolicy: React.FC<PrivacyPolicyProps> = ({ onBack }) => {
       <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-[32px] text-center space-y-4">
         <p className="text-sm font-bold text-emerald-800">
           Última actualización: Mayo 2026. 
-          Al utilizar EduGenius AI, aceptas los términos descritos en este documento.
+          Al utilizar EvaluAI, aceptas los términos descritos en este documento.
         </p>
       </div>
     </div>

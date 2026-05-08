@@ -58,16 +58,11 @@ export default function App() {
     // Set role from profile
     setRole(profile.role || 'student');
     
-    // If admin, default to admin panel
-    if (profile.role === 'admin' && view === 'dashboard') {
-      setView('admin');
-    }
-
     const unsubscribers: (() => void)[] = [];
 
     if (profile?.role === 'teacher' || profile?.role === 'admin') {
       unsubscribers.push(
-        examsService.subscribeToUserExams(user.uid, (data) => {
+        examsService.subscribeToExams((data) => {
           setExams(data);
         })
       );
@@ -156,7 +151,8 @@ export default function App() {
         id: crypto.randomUUID(),
         title: `Examen: ${params.topic}`,
         questions,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        teacherName: profile?.fullName || user?.displayName || undefined
       });
       setView('review');
       setSelectedCourseForExam(null); // Clear after generation
@@ -231,7 +227,7 @@ export default function App() {
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-black text-slate-900 tracking-tighter leading-none uppercase">
-                  EduGenius<span className="text-[#00843D]">AI</span>
+                  Evalu<span className="text-[#00843D]">AI</span>
                 </h1>
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 italic">Gestión Académica e IA Educativa</p>
               </div>
@@ -298,7 +294,7 @@ export default function App() {
                 <GraduationCap size={32} />
               </div>
               <h2 className="text-2xl font-black text-slate-900 mb-2">¡Hola, bienvenido!</h2>
-              <p className="text-slate-500 mb-8 font-medium">Por favor, ingresa tu nombre completo para completar tu perfil en EduGeniusAI.</p>
+              <p className="text-slate-500 mb-8 font-medium">Por favor, ingresa tu nombre completo para completar tu perfil en EvaluAI.</p>
               
               <form onSubmit={handleUpdateName} className="space-y-4">
                 <div className="space-y-2">
@@ -489,7 +485,7 @@ export default function App() {
               <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center text-white">
                 <BrainCircuit size={18} />
               </div>
-              <span className="text-xl font-bold text-slate-900">EduGeniusAI</span>
+              <span className="text-xl font-bold text-slate-900">EvaluAI</span>
             </div>
             <p className="text-slate-500 text-sm max-w-sm">
               Potenciando la educación superior con inteligencia artificial basada en evidencias. 

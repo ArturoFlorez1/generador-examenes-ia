@@ -59,7 +59,7 @@ export const HelpCenter: React.FC<HelpCenterProps> = ({ onBack }) => {
           <h1 className="text-4xl font-black text-slate-900 tracking-tighter">
             Centro de <span className="text-brand-primary">ayuda</span>
           </h1>
-          <p className="text-slate-500 font-medium">Todo lo que necesitas saber para dominar EduGenius AI.</p>
+          <p className="text-slate-500 font-medium">Todo lo que necesitas saber para dominar EvaluAI.</p>
         </div>
       </div>
 

@@ -81,7 +81,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({
             
             <div>
               <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{profile.fullName || 'Usuario'}</h3>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">{profile.role}</p>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+                {profile.role === 'admin' ? 'Administrador' : profile.role === 'teacher' ? 'Docente' : 'Estudiante'}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-50">
@@ -154,7 +156,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                     type="text"
                     disabled
                     className="w-full bg-slate-100 border-2 border-slate-100 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-400 cursor-not-allowed uppercase tracking-wider"
-                    value={profile.role}
+                    value={profile.role === 'admin' ? 'Administrador' : profile.role === 'teacher' ? 'Docente' : 'Estudiante'}
                   />
                 </div>
               </div>

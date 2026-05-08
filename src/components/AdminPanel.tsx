@@ -13,9 +13,12 @@ import {
   History,
   PieChart as PieChartIcon,
   MessageSquare,
-  Mail
+  Mail,
+  Trash2,
+  AlertTriangle,
+  TrendingUp
 } from 'lucide-react';
-import { collection, query, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, getDocs, updateDoc, doc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -44,6 +47,8 @@ export const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'metrics' | 'users' | 'exams' | 'messages'>('metrics');
+  const [userToDelete, setUserToDelete] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchData = async () => {
     if (profile?.role !== 'admin' && profile?.email !== 'florezarturo1816@gmail.com') {
@@ -84,14 +89,33 @@ export const AdminPanel: React.FC = () => {
     fetchData();
   }, []);
 
-  const stats = useMemo(() => ({
-    totalUsers: users.length,
-    totalExams: exams.length,
-    totalSubmissions: submissions.length,
-    teachers: users.filter(u => u.role === 'teacher').length,
-    students: users.filter(u => u.role === 'student').length,
-    pendingRequests: users.filter(u => u.roleRequest === 'pending').length
-  }), [users, exams, submissions]);
+  const stats = useMemo(() => {
+    const totalScore = submissions.reduce((acc, curr) => acc + (curr.score || 0), 0);
+    const avgScore = submissions.length > 0 ? (totalScore / submissions.length).toFixed(1) : '0';
+    
+    // Most active courses
+    const courseStats: Record<string, number> = {};
+    exams.forEach(e => {
+      if (e.course) {
+        courseStats[e.course] = (courseStats[e.course] || 0) + 1;
+      }
+    });
+    const topCourses = Object.entries(courseStats)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return {
+      totalUsers: users.length,
+      totalExams: exams.length,
+      totalSubmissions: submissions.length,
+      teachers: users.filter(u => u.role === 'teacher').length,
+      students: users.filter(u => u.role === 'student').length,
+      pendingRequests: users.filter(u => u.roleRequest === 'pending').length,
+      avgScore,
+      topCourses
+    };
+  }, [users, exams, submissions]);
 
   // Chart Data Preparation
   const roleData = [
@@ -171,8 +195,23 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    setDeleting(true);
+    try {
+      await deleteDoc(doc(db, 'users', userToDelete.id));
+      setUsers(users.filter(u => u.id !== userToDelete.id));
+      setUserToDelete(null);
+    } catch (error) {
+      console.error("Error deleting user:", error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filteredUsers = users.filter(u => 
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredExams = exams.filter(e => 
@@ -228,7 +267,6 @@ export const AdminPanel: React.FC = () => {
             {[
               { label: 'Usuarios Totales', val: stats.totalUsers, icon: Users, color: 'bg-blue-500' },
               { label: 'Exámenes Creados', val: stats.totalExams, icon: FileText, color: 'bg-brand-primary' },
-              { label: 'Resultados Registrados', val: stats.totalSubmissions, icon: CheckCircle, color: 'bg-emerald-500' },
               { label: 'Solicitudes Pendientes', val: stats.pendingRequests, icon: UserCog, color: 'bg-amber-500' },
             ].map((stat, i) => (
               <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-4">
@@ -294,6 +332,25 @@ export const AdminPanel: React.FC = () => {
                     />
                     <Line type="monotone" dataKey="count" stroke="#00843D" strokeWidth={4} dot={{ r: 6, fill: '#00843D' }} activeDot={{ r: 8 }} />
                   </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6 lg:col-span-2">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <GraduationCap className="text-brand-primary" /> Cursos con mayor producción de instrumentos
+              </h3>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.topCourses}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
+                    <YAxis fontSize={10} axisLine={false} tickLine={false} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Bar dataKey="count" fill="#3b82f6" radius={[10, 10, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -462,13 +519,24 @@ export const AdminPanel: React.FC = () => {
                         </button>
                       </div>
                     ) : (
-                      <button 
-                        onClick={() => handleRoleUpdate(user.uid, user.role === 'teacher' ? 'student' : 'teacher')}
-                        disabled={user.role === 'admin'}
-                        className="text-[10px] font-black text-slate-400 hover:text-brand-primary uppercase tracking-widest disabled:opacity-0 transition-colors"
-                      >
-                        Cambiar a {user.role === 'teacher' ? 'Estudiante' : 'Docente'}
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => handleRoleUpdate(user.uid, user.role === 'teacher' ? 'student' : 'teacher')}
+                          disabled={user.role === 'admin'}
+                          className="text-[10px] font-black text-slate-400 hover:text-brand-primary uppercase tracking-widest disabled:opacity-0 transition-colors"
+                        >
+                          Cambiar a {user.role === 'teacher' ? 'Estudiante' : 'Docente'}
+                        </button>
+                        {user.role !== 'admin' && user.email !== 'florezarturo1816@gmail.com' && (
+                          <button 
+                            onClick={() => setUserToDelete(user)}
+                            className="p-2 text-rose-300 hover:text-rose-500 transition-colors"
+                            title="Eliminar usuario"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div className="text-[10px] text-slate-300 font-medium italic">
@@ -478,6 +546,59 @@ export const AdminPanel: React.FC = () => {
               </motion.div>
             ))}
           </div>
+
+          {/* Delete Confirmation Modal */}
+          <AnimatePresence>
+            {userToDelete && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-white rounded-[40px] p-8 max-w-md w-full shadow-2xl relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-8">
+                    <button 
+                      onClick={() => setUserToDelete(null)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <XCircle size={24} />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center space-y-6">
+                    <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center">
+                      <AlertTriangle size={40} />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Confirmar eliminación</h3>
+                      <p className="text-slate-500 font-medium leading-relaxed">
+                        ¿Estás seguro de que deseas eliminar a <span className="text-rose-600 font-bold">{userToDelete.fullName || userToDelete.email}</span>? 
+                        Esta acción no se puede deshacer.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 w-full pt-4">
+                      <button 
+                        onClick={() => setUserToDelete(null)}
+                        className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        onClick={handleDeleteUser}
+                        disabled={deleting}
+                        className="px-6 py-4 bg-rose-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-rose-500/30 hover:scale-105 active:scale-95 disabled:opacity-50 transition-all"
+                      >
+                        {deleting ? <Loader2 className="animate-spin" size={18} /> : 'Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
