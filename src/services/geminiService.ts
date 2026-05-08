@@ -2,7 +2,11 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Question, ExamParams } from "../types";
 
 function getAI(apiKey?: string) {
-  return new GoogleGenAI({ apiKey: apiKey || process.env.GEMINI_API_KEY || "" });
+  const key = apiKey || process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new Error("No se ha configurado ninguna API Key de Gemini. Por favor, añádela en tu perfil o configura GEMINI_API_KEY en el entorno.");
+  }
+  return new GoogleGenAI({ apiKey: key });
 }
 
 export async function runAITool(toolId: string, input: any, apiKey?: string): Promise<string> {
