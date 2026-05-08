@@ -7,7 +7,8 @@ import {
   Search, 
   LogOut, 
   GraduationCap,
-  Loader2
+  Loader2,
+  User
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Dashboard } from './components/Dashboard';
@@ -20,6 +21,7 @@ import { HelpCenter } from './components/HelpCenter';
 import { Contact } from './components/Contact';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { AboutUs } from './components/AboutUs';
+import { UserProfile } from './components/UserProfile';
 import { Login } from './components/Login';
 import { generateExamQuestions } from './services/geminiService';
 import { examsService, coursesService } from './services/firestoreService';
@@ -30,7 +32,7 @@ import { UNI_LOGO_URL } from './constants';
 export default function App() {
   const { user, profile, loading: authLoading, requestDocente, updateProfile, logout } = useAuth();
   const [role, setRole] = useState<'teacher' | 'student' | 'admin'>('student');
-  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin' | 'help' | 'contact' | 'about' | 'privacy'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin' | 'help' | 'contact' | 'about' | 'privacy' | 'profile'>('dashboard');
   const [exams, setExams] = useState<Exam[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
@@ -129,6 +131,7 @@ export default function App() {
     const fullName = formData.get('fullName') as string;
     if (fullName.trim()) {
       await updateProfile({ fullName: fullName.trim() });
+      setView('dashboard');
     }
   };
 
@@ -247,7 +250,25 @@ export default function App() {
             {role === 'admin' && (
               <NavLink active={view === 'admin'} onClick={() => setView('admin')}>Panel Admin</NavLink>
             )}
+            
             <div className="w-px h-6 bg-slate-200" />
+            
+            <button 
+              onClick={() => setView('profile')}
+              className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all border ${
+                view === 'profile' ? 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary' : 'border-slate-100 hover:border-brand-primary/20 hover:bg-slate-50 text-slate-600'
+              }`}
+              title="Mi Perfil"
+            >
+              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                <User size={20} className="text-brand-primary" />
+              </div>
+              <div className="text-left hidden lg:block">
+                <p className="text-[10px] font-black uppercase tracking-widest leading-none">Mi Perfil</p>
+                <p className="text-[11px] font-bold truncate max-w-[120px] mt-1">{profile?.fullName || 'Configurar'}</p>
+              </div>
+            </button>
+
             <button 
               onClick={logout}
               className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-red-500 transition-colors uppercase tracking-widest px-3 py-2 rounded-lg hover:bg-red-50"
@@ -265,8 +286,8 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-12">
-        {/* Name Prompt for Students */}
-        {role === 'student' && !profile?.fullName && (
+        {/* Name Prompt for ALL users missing name */}
+        {!profile?.fullName && view !== 'profile' && (
           <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
@@ -276,8 +297,8 @@ export default function App() {
               <div className="bg-brand-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center text-brand-primary mb-6">
                 <GraduationCap size={32} />
               </div>
-              <h2 className="text-2xl font-black text-slate-900 mb-2">¡Bienvenido Estudiante!</h2>
-              <p className="text-slate-500 mb-8 font-medium">Por favor, ingresa tu nombre completo para completar tu registro en el sistema.</p>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">¡Hola, bienvenido!</h2>
+              <p className="text-slate-500 mb-8 font-medium">Por favor, ingresa tu nombre completo para completar tu perfil en EduGeniusAI.</p>
               
               <form onSubmit={handleUpdateName} className="space-y-4">
                 <div className="space-y-2">
@@ -286,7 +307,7 @@ export default function App() {
                     required
                     name="fullName"
                     type="text"
-                    placeholder="Ej: Juan Pérez"
+                    placeholder="Ej: Arturo José Florez Causil"
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 outline-none focus:border-brand-primary transition-all font-bold text-slate-700"
                   />
                 </div>
@@ -294,7 +315,7 @@ export default function App() {
                   type="submit"
                   className="w-full bg-brand-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
                 >
-                  Confirmar Registro
+                  Confirmar Identidad
                 </button>
               </form>
             </motion.div>
@@ -447,6 +468,16 @@ export default function App() {
 
         {view === 'about' && (
           <AboutUs onBack={() => setView('dashboard')} />
+        )}
+
+        {view === 'profile' && profile && (
+          <UserProfile 
+            profile={profile}
+            examsCount={exams.length}
+            coursesCount={role === 'student' ? enrolledCourses.length : courses.length}
+            onUpdate={updateProfile}
+            onBack={() => setView('dashboard')}
+          />
         )}
       </main>
 
