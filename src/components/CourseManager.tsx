@@ -14,33 +14,44 @@ import {
   UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Course, Enrollment } from '../types';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { Course, Enrollment, Exam } from '../types';
 import { PREDEFINED_COURSES } from '../constants';
 import { coursesService } from '../services/firestoreService';
 
 interface CourseCardProps {
   course: Course;
+  exams: Exam[];
   onDelete: (id: string) => Promise<void>;
   onSelect: (id: string) => void;
   copiedId: string | null;
   onCopy: (code: string, id: string) => void;
 }
 
-const CourseCard: React.FC<CourseCardProps> = ({ course, onDelete, onSelect, copiedId, onCopy }) => {
+const CourseCard: React.FC<CourseCardProps> = ({ course, exams, onDelete, onSelect, copiedId, onCopy }) => {
   const [studentCount, setStudentCount] = useState(0);
   const [students, setStudents] = useState<Enrollment[]>([]);
+  const [submissions, setSubmissions] = useState<any[]>([]);
   const [showStudents, setShowStudents] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStudents = async () => {
-      const data = await coursesService.getStudentsForCourse(course.id);
-      setStudents(data);
-      setStudentCount(data.length);
+    const fetchData = async () => {
+      setLoading(true);
+      const studentData = await coursesService.getStudentsForCourse(course.id);
+      setStudents(studentData);
+      setStudentCount(studentData.length);
+      
+      const courseExamIds = exams.filter(e => e.courseId === course.id).map(e => e.id);
+      if (courseExamIds.length > 0) {
+        const subSnap = await getDocs(query(collection(db, 'submissions'), where('examId', 'in', courseExamIds)));
+        setSubmissions(subSnap.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+      }
       setLoading(false);
     };
-    fetchStudents();
-  }, [course.id]);
+    fetchData();
+  }, [course.id, exams]);
 
   return (
     <motion.div 
@@ -64,7 +75,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onDelete, onSelect, cop
               <Users size={16} />
             </button>
             <button 
-              onClick={() => onDelete(course.id)}
+              onClick={(e) => { e.stopPropagation(); onDelete(course.id); }}
               className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
               title="Eliminar Curso"
             >
@@ -113,12 +124,19 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onDelete, onSelect, cop
                 <UserCheck size={12} /> Lista de Estudiantes
               </h4>
               <div className="space-y-2 max-h-40 overflow-y-auto pr-2 scrollbar-hide">
-                {students.map((enrollment) => (
-                  <div key={enrollment.id} className="bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700">{enrollment.studentName || 'Sin nombre'}</span>
-                    <span className="text-[8px] font-black text-slate-300 uppercase">{enrollment.enrolledAt ? new Date(enrollment.enrolledAt).toLocaleDateString() : ''}</span>
-                  </div>
-                ))}
+                {students.map((enrollment) => {
+                  const studentSubmission = submissions.find(s => s.studentId === enrollment.studentId);
+                  return (
+                    <div key={enrollment.id} className="bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">{enrollment.studentName || 'Sin nombre'}</span>
+                      {studentSubmission && (
+                        <span className="text-xs font-black text-brand-primary">
+                          {studentSubmission.score} / 5.0
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
                 {students.length === 0 && (
                   <p className="text-[10px] font-medium text-slate-400 text-center py-2">No hay estudiantes inscritos aún.</p>
                 )}
@@ -133,6 +151,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onDelete, onSelect, cop
 
 interface CourseManagerProps {
   courses: Course[];
+  exams: Exam[];
   onCreateCourse: (name: string, description: string) => Promise<void>;
   onDeleteCourse: (courseId: string) => Promise<void>;
   onSelectCourse: (id: string) => void;
@@ -140,6 +159,7 @@ interface CourseManagerProps {
 
 export const CourseManager: React.FC<CourseManagerProps> = ({ 
   courses, 
+  exams,
   onCreateCourse, 
   onDeleteCourse,
   onSelectCourse
@@ -149,6 +169,8 @@ export const CourseManager: React.FC<CourseManagerProps> = ({
   const [courseDescription, setCourseDescription] = useState('Curso oficial asignado');
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // ... rest of the file stays same
 
   // Filter out courses already assigned to this teacher to avoid duplicates if desired, 
   // though teacher might have multiple sections of same course name.
@@ -254,7 +276,8 @@ export const CourseManager: React.FC<CourseManagerProps> = ({
         {courses.map((course) => (
           <CourseCard 
             key={course.id} 
-            course={course} 
+            course={course}
+            exams={exams}
             onDelete={onDeleteCourse} 
             onSelect={onSelectCourse}
             copiedId={copiedId} 

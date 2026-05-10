@@ -317,6 +317,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               ) : (
                 <CourseManager 
                   courses={courses} 
+                  exams={exams}
                   onCreateCourse={onCreateCourse} 
                   onDeleteCourse={onDeleteCourse} 
                   onSelectCourse={(id) => setSelectedCourseId(id)}

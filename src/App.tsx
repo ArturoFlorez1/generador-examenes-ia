@@ -43,8 +43,18 @@ export default function App() {
     const hidden = localStorage.getItem('hide_role_request');
     return !hidden;
   });
+  const [showApiKeyAlert, setShowApiKeyAlert] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [selectedCourseForExam, setSelectedCourseForExam] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && profile?.role === 'teacher') {
+      const apiKey = localStorage.getItem('gemini_api_key');
+      if (!apiKey) {
+        setShowApiKeyAlert(true);
+      }
+    }
+  }, [user, profile]);
 
   // Load and Sync with Firestore
   useEffect(() => {
@@ -158,7 +168,11 @@ export default function App() {
       setView('review');
       setSelectedCourseForExam(null); // Clear after generation
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error desconocido');
+      if (error instanceof Error && error.message === 'API_KEY_MISSING') {
+        setShowApiKeyAlert(true);
+      } else {
+        alert(error instanceof Error ? error.message : 'Error desconocido');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -190,7 +204,7 @@ export default function App() {
       await coursesService.delete(id);
     } catch (err) {
       console.error("Error deleting course:", err);
-      alert("Error al eliminar el curso");
+      alert("Error al eliminar el curso: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -284,7 +298,7 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-12">
         {/* Name Prompt for ALL users missing name */}
-        {!profile?.fullName && view !== 'profile' && (
+        {!authLoading && profile && !profile.fullName && view !== 'profile' && (
           <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
@@ -315,6 +329,45 @@ export default function App() {
                   Confirmar Identidad
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* API Key Prompt for Teachers */}
+        {showApiKeyAlert && (
+          <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl"
+            >
+              <div className="bg-amber-100 w-16 h-16 rounded-2xl flex items-center justify-center text-amber-600 mb-6">
+                <BrainCircuit size={32} />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">Configure su API Key</h2>
+              <p className="text-slate-600 mb-6 font-medium">
+                Para utilizar las herramientas de IA, necesitas configurar tu API Key de Gemini. 
+                Puedes hacerlo en cualquier momento desde tu <span className="font-bold underline cursor-pointer" onClick={() => { setShowApiKeyAlert(false); setView('profile'); }}>Perfil</span>.
+              </p>
+              
+              <div className="bg-slate-50 p-4 rounded-2xl mb-6">
+                <p className="text-xs text-slate-500 mb-2">Obtén tu API Key aquí:</p>
+                <a 
+                  href="https://aistudio.google.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-brand-primary font-bold text-sm underline"
+                >
+                  Google AI Studio - Obtener API Key
+                </a>
+              </div>
+
+              <button 
+                onClick={() => setShowApiKeyAlert(false)}
+                className="w-full bg-brand-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                Entendido
+              </button>
             </motion.div>
           </div>
         )}

@@ -147,10 +147,16 @@ export const AIResources: React.FC = () => {
   };
 
   const handleRunTool = async (toolId: string) => {
+    const apiKey = localStorage.getItem('gemini_api_key') || undefined;
+    if (!apiKey) {
+      alert("Por favor, configura tu API Key de Gemini en tu perfil para utilizar las herramientas de IA.");
+      setActiveTool(null);
+      return;
+    }
+
     setLoading(true);
     setResult(null);
     try {
-      const apiKey = localStorage.getItem('gemini_api_key') || undefined;
       const response = await runAITool(toolId, formValues, apiKey);
       setResult(response);
     } catch (error) {

@@ -281,9 +281,12 @@ export const coursesService = {
 
   async delete(id: string): Promise<void> {
     const path = `courses/${id}`;
+    console.log("Firestore delete called for:", path);
     try {
       await deleteDoc(doc(db, 'courses', id));
+      console.log("Firestore deleteDoc finished for:", path);
     } catch (error) {
+      console.error("Firestore delete error:", error);
       handleFirestoreError(error, OperationType.DELETE, path);
     }
   },
