@@ -38,13 +38,21 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
     numQuestions: 5,
     questionTypes: ['multiple_choice'],
     distribution: {
-      multiple_choice: 5,
+      multiple_choice: 0,
       open_question: 0,
       case_study: 0,
       workshop: 0,
-      true_false: 0
+      true_false: 0,
+      icfes_multiple_choice: 0,
+      saber_pro_reading_critical: 0,
+      saber_pro_quantitative_reasoning: 0,
+      saber_pro_citizen_competencies: 0,
+      saber_pro_written_communication: 0,
+      saber_pro_english: 0
     }
   });
+
+  const [showSaberPro, setShowSaberPro] = useState(false);
 
   const handleCourseChange = (courseId: string) => {
     const selectedCourse = courses.find(c => c.id === courseId);
@@ -56,15 +64,31 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
   const updateDistribution = (type: keyof QuestionDistribution, value: number) => {
     const newCount = Math.max(0, value);
     setParams(prev => {
-      const newDistribution = { ...prev.distribution!, [type]: newCount };
-      const totalInDist = Object.values(newDistribution).reduce((a, b) => a + b, 0);
+      const prevDist = { ...prev.distribution! };
+      const newDistribution = { ...prevDist, [type]: newCount };
+      
+      let totalInDist = Object.values(newDistribution).reduce((a, b) => a + b, 0);
+
+      // Rebalancing logic:
+      if (totalInDist > prev.numQuestions) {
+          let overflow = totalInDist - prev.numQuestions;
+          const keys = Object.keys(newDistribution) as (keyof QuestionDistribution)[];
+          
+          for (const key of keys) {
+              if (key === type) continue;
+              
+              if (newDistribution[key] > 0) {
+                  const reduceAmount = Math.min(overflow, newDistribution[key]);
+                  newDistribution[key] -= reduceAmount;
+                  overflow -= reduceAmount;
+              }
+              if (overflow === 0) break;
+          }
+      }
       
       return {
         ...prev,
         distribution: newDistribution,
-        // Optional: keep numQuestions in sync or just use it as a cap
-        // In this case, I'll keep the actual total questions as the sum of distribution if the user wants flexibility
-        // but the prompt said "obviamente que no superen el numero que ya se estableció antes"
       };
     });
   };
@@ -78,6 +102,47 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
     if (params.questionTypes.length === 0) return;
     onGenerate(params);
   };
+
+  const traditionalTypes = [
+      { id: 'multiple_choice', label: 'Opción Múltiple' },
+      { id: 'open_question', label: 'Abierta / Respuesta Corta' },
+      { id: 'case_study', label: 'Estudio de Caso' },
+      { id: 'workshop', label: 'Taller / Ejercicio' },
+      { id: 'true_false', label: 'Verdadero o Falso' }
+  ];
+
+  const saberProTypes = [
+      { id: 'icfes_multiple_choice', label: 'Selección múltiple (ICFES)' },
+      { id: 'saber_pro_reading_critical', label: 'Saber Pro - Lectura Crítica' },
+      { id: 'saber_pro_quantitative_reasoning', label: 'Saber Pro - Razonamiento Cuantitativo' },
+      { id: 'saber_pro_citizen_competencies', label: 'Saber Pro - Competencias Ciudadanas' },
+      { id: 'saber_pro_written_communication', label: 'Saber Pro - Comunicación Escrita' },
+      { id: 'saber_pro_english', label: 'Saber Pro - Inglés' }
+  ];
+
+  const renderQuestionType = (type: {id: string, label: string}) => (
+    <div key={type.id} className="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+      <span className="text-[10px] font-black uppercase tracking-tight text-slate-600">{type.label}</span>
+      <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-8">
+        <button 
+          type="button" 
+          onClick={() => updateDistribution(type.id as keyof QuestionDistribution, (params.distribution?.[type.id as keyof QuestionDistribution] || 0) - 1)}
+          className="px-2 hover:bg-slate-100 font-bold text-xs"
+        >-</button>
+        <input 
+          type="number"
+          className="w-10 text-center text-xs font-bold outline-none border-none"
+          value={params.distribution?.[type.id as keyof QuestionDistribution] || 0}
+          onChange={e => updateDistribution(type.id as keyof QuestionDistribution, parseInt(e.target.value) || 0)}
+        />
+        <button 
+          type="button" 
+          onClick={() => updateDistribution(type.id as keyof QuestionDistribution, (params.distribution?.[type.id as keyof QuestionDistribution] || 0) + 1)}
+          className="px-2 hover:bg-slate-100 font-bold text-xs"
+        >+</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom duration-700">
@@ -191,35 +256,24 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
             <div className="space-y-4">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Tipos de preguntas requeridas</label>
               <div className="space-y-3">
-                {[
-                  { id: 'multiple_choice', label: 'Opción Múltiple' },
-                  { id: 'open_question', label: 'Abierta / Respuesta Corta' },
-                  { id: 'case_study', label: 'Estudio de Caso' },
-                  { id: 'workshop', label: 'Taller / Ejercicio' },
-                  { id: 'true_false', label: 'Verdadero o Falso' }
-                ].map(type => (
-                  <div key={type.id} className="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <span className="text-[10px] font-black uppercase tracking-tight text-slate-600">{type.label}</span>
-                    <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-8">
-                      <button 
-                        type="button" 
-                        onClick={() => updateDistribution(type.id as keyof QuestionDistribution, (params.distribution?.[type.id as keyof QuestionDistribution] || 0) - 1)}
-                        className="px-2 hover:bg-slate-100 font-bold text-xs"
-                      >-</button>
-                      <input 
-                        type="number"
-                        className="w-10 text-center text-xs font-bold outline-none border-none"
-                        value={params.distribution?.[type.id as keyof QuestionDistribution] || 0}
-                        onChange={e => updateDistribution(type.id as keyof QuestionDistribution, parseInt(e.target.value) || 0)}
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => updateDistribution(type.id as keyof QuestionDistribution, (params.distribution?.[type.id as keyof QuestionDistribution] || 0) + 1)}
-                        className="px-2 hover:bg-slate-100 font-bold text-xs"
-                      >+</button>
-                    </div>
-                  </div>
-                ))}
+                {traditionalTypes.map(renderQuestionType)}
+
+                <div className="pt-2 border-t border-slate-100">
+                    <button 
+                        type="button"
+                        onClick={() => setShowSaberPro(!showSaberPro)}
+                        className="w-full flex items-center justify-between p-3 bg-brand-primary/5 text-brand-primary rounded-2xl border border-brand-primary/20 text-xs font-black uppercase tracking-tight"
+                    >
+                        {showSaberPro ? 'Ocultar preguntas Saber Pro' : 'Incluir preguntas Saber Pro'}
+                        <Plus className={`transition-transform ${showSaberPro ? 'rotate-45' : ''}`} size={16} />
+                    </button>
+
+                    {showSaberPro && (
+                        <div className="space-y-3 pt-3">
+                           {saberProTypes.map(renderQuestionType)}
+                        </div>
+                    )}
+                </div>
               </div>
               {isOverLimit && (
                 <div className="flex items-center gap-2 text-rose-500 bg-rose-50 p-3 rounded-xl border border-rose-100">
@@ -251,11 +305,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
           ) : (
             <>
               <Sparkles size={24} className="group-hover:rotate-12 transition-transform" />
-              <span>Generar Instrumento Maestro</span>
+              <span>Generar Examen</span>
             </>
           )}
         </button>
       </form>
     </div>
-  );
-};
+  );};

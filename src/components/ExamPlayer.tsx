@@ -28,7 +28,13 @@ const TYPE_LABELS: Record<string, string> = {
   'true_false': 'Falso o Verdadero',
   'open_question': 'Pregunta Abierta',
   'case_study': 'Estudio de Caso',
-  'workshop': 'Taller Práctico'
+  'workshop': 'Taller Práctico',
+  'icfes_multiple_choice': 'Selección Múltiple (ICFES)',
+  'saber_pro_reading_critical': 'Saber Pro: Lectura Crítica',
+  'saber_pro_quantitative_reasoning': 'Saber Pro: Razonamiento Cuantitativo',
+  'saber_pro_citizen_competencies': 'Saber Pro: Competencias Ciudadanas',
+  'saber_pro_written_communication': 'Saber Pro: Comunicación Escrita',
+  'saber_pro_english': 'Saber Pro: Inglés'
 };
 
 export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 'teacher' }) => {
@@ -241,7 +247,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
                 <span className="text-[10px] font-black tracking-widest text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full uppercase">
                   {TYPE_LABELS[q.type] || q.type.replace('_', ' ')}
                 </span>
-                <h2 className="text-2xl font-bold text-slate-900 leading-tight">
+                <h2 className="text-2xl font-bold text-slate-900 leading-tight break-words">
                   {q.prompt}
                 </h2>
               </div>
@@ -361,7 +367,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
                     return (
                       <div 
                         key={oIdx} 
-                        className={`text-sm p-3 rounded-xl border flex items-center gap-3 ${
+                        className={`text-sm p-3 rounded-xl border flex items-center gap-3 break-words ${
                           isCorrect ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-500'
                         }`}
                       >
@@ -384,7 +390,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
                     <BrainCircuit size={14} />
                     Justificación Pedagógica y Evidencia
                   </div>
-                  <p className="text-slate-600 leading-relaxed italic">{question.justification}</p>
+                  <p className="text-slate-600 leading-relaxed italic break-words">{question.justification}</p>
                 </div>
                 
                 <div className="flex flex-wrap gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">

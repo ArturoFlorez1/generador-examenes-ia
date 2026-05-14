@@ -95,12 +95,20 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     Lineamientos obligatorios para CADA ítem:
     1. Alinear con un resultado de aprendizaje específico del tema.
     2. Indicar la competencia evaluada.
-    3. Clasificar el nivel cognitivo según la Taxonomía de Bloom.
+    3. Clasificar el nivel cognitivo según la Taxonomía de Bloom o COMPETENCIAS ICFES/SABER PRO.
     4. Ajustar la dificultad al nivel solicitado: ${difficulty}.
     5. Justificar la dificultad de la pregunta.
     6. Evaluar criterios de calidad internamente: Claridad, Coherencia, Pertinencia.
     7. Incluir una "Recomendación para el docente".
-    8. Toda la respuesta debe estar estrictamente en español (Español Neutro). Evita términos técnicos en inglés a menos que sea estrictamente necesario para el tema (ej. nombres de lenguajes de programación o protocolos específicos).
+    8. INSTRUCCIONES PARA PREGUNTAS TIPO ICFES / SABER PRO:
+    Si generas preguntas tipo 'icfes_multiple_choice', 'saber_pro_reading_critical', 'saber_pro_quantitative_reasoning', 'saber_pro_citizen_competencies', 'saber_pro_written_communication', o 'saber_pro_english':
+    - Utiliza estrictamente la estructura y marcos de referencia de Saber Pro.
+    - Lectura Crítica: Usa textos de complejidad académica; evalúa inferencias, intención del autor, tesis y argumentos.
+    - Razonamiento Cuantitativo: Usa situaciones de modelado, interpretación de datos, resolución de problemas prácticos.
+    - Competencias Ciudadanas: Usa dilemas éticos, toma de decisiones, análisis de marcos constitucionales y sociales.
+    - Los distractores deben ser plausibles y basados en errores comunes de razonamiento, NO en hechos falsos triviales.
+    - La competencia evaluada debe ser explícita y coherente con el tipo de pregunta según el Marco de Referencia Saber Pro.
+    9. Toda la respuesta debe estar estrictamente en español (Español Neutro). Evita términos técnicos en inglés a menos que sea estrictamente necesario para el tema.
     
     Contexto del Curso:
     - Curso: ${course}
@@ -126,7 +134,11 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
           type: Type.OBJECT,
           properties: {
             id: { type: Type.STRING },
-            type: { type: Type.STRING, enum: ['multiple_choice', 'open_question', 'case_study', 'workshop', 'true_false'] },
+            type: { type: Type.STRING, enum: [
+              'multiple_choice', 'open_question', 'case_study', 'workshop', 'true_false',
+              'icfes_multiple_choice', 'saber_pro_reading_critical', 'saber_pro_quantitative_reasoning',
+              'saber_pro_citizen_competencies', 'saber_pro_written_communication', 'saber_pro_english'
+            ] },
             prompt: { type: Type.STRING },
             options: { type: Type.ARRAY, items: { type: Type.STRING } },
             correctAnswer: { type: Type.STRING },
@@ -191,7 +203,11 @@ export async function reformulateQuestion(question: Question, instructions: stri
         type: Type.OBJECT,
         properties: {
           id: { type: Type.STRING },
-          type: { type: Type.STRING, enum: ['multiple_choice', 'open_question', 'case_study', 'workshop', 'true_false'] },
+          type: { type: Type.STRING, enum: [
+              'multiple_choice', 'open_question', 'case_study', 'workshop', 'true_false',
+              'icfes_multiple_choice', 'saber_pro_reading_critical', 'saber_pro_quantitative_reasoning',
+              'saber_pro_citizen_competencies', 'saber_pro_written_communication', 'saber_pro_english'
+            ] },
           prompt: { type: Type.STRING },
           options: { type: Type.ARRAY, items: { type: Type.STRING } },
           correctAnswer: { type: Type.STRING },

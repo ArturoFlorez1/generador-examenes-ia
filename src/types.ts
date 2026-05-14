@@ -3,7 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type QuestionType = 'multiple_choice' | 'open_question' | 'case_study' | 'workshop' | 'true_false';
+export type QuestionType = 
+  | 'multiple_choice' 
+  | 'open_question' 
+  | 'case_study' 
+  | 'workshop' 
+  | 'true_false'
+  | 'icfes_multiple_choice'
+  | 'saber_pro_reading_critical'
+  | 'saber_pro_quantitative_reasoning'
+  | 'saber_pro_citizen_competencies'
+  | 'saber_pro_written_communication'
+  | 'saber_pro_english'
+  | 'mixed_icfes';
 
 export interface QualityCriteria {
   clarity: string;
@@ -85,6 +97,12 @@ export interface QuestionDistribution {
   case_study: number;
   workshop: number;
   true_false: number;
+  icfes_multiple_choice: number;
+  saber_pro_reading_critical: number;
+  saber_pro_quantitative_reasoning: number;
+  saber_pro_citizen_competencies: number;
+  saber_pro_written_communication: number;
+  saber_pro_english: number;
 }
 
 export interface ExamParams {

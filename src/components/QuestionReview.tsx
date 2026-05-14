@@ -31,7 +31,13 @@ const TYPE_LABELS: Record<string, string> = {
   'true_false': 'Falso o Verdadero',
   'open_question': 'Pregunta Abierta',
   'case_study': 'Estudio de Caso',
-  'workshop': 'Taller Práctico'
+  'workshop': 'Taller Práctico',
+  'icfes_multiple_choice': 'Selección Múltiple (ICFES)',
+  'saber_pro_reading_critical': 'Saber Pro: Lectura Crítica',
+  'saber_pro_quantitative_reasoning': 'Saber Pro: Razonamiento Cuantitativo',
+  'saber_pro_citizen_competencies': 'Saber Pro: Competencias Ciudadanas',
+  'saber_pro_written_communication': 'Saber Pro: Comunicación Escrita',
+  'saber_pro_english': 'Saber Pro: Inglés'
 };
 
 export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, onCancel }) => {
@@ -250,7 +256,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                   </label>
                   <textarea
                     rows={Math.max(3, Math.ceil(q.prompt.length / 60))}
-                    className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-3xl p-8 focus:border-brand-primary focus:bg-white outline-none min-h-[140px] transition-all font-bold text-xl text-slate-900 leading-relaxed shadow-inner resize-none overflow-hidden"
+                    className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-3xl p-8 focus:border-brand-primary focus:bg-white outline-none min-h-[140px] transition-all font-bold text-xl text-slate-900 leading-relaxed shadow-inner resize-none break-words"
                     value={q.prompt}
                     onChange={e => {
                       const newQs = [...questions];
@@ -265,7 +271,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                     {q.options.map((opt, i) => (
                       <div 
                         key={i}
-                        className={`p-5 rounded-2xl border-2 text-sm flex items-start justify-between gap-4 group/opt ${
+                        className={`p-5 rounded-2xl border-2 text-sm flex items-start justify-between gap-4 group/opt break-words ${
                           opt === q.correctAnswer 
                             ? 'border-emerald-200 bg-emerald-50/50 text-emerald-700 font-bold shadow-sm' 
                             : 'border-slate-50 bg-white text-slate-600'
@@ -329,7 +335,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                       <BrainCircuit size={18} /> Justificación Pedagógica (Docente)
                     </div>
                     <textarea
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:bg-white/10 transition-all text-xs text-slate-300 leading-relaxed italic resize-none overflow-hidden min-h-[120px]"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:bg-white/10 transition-all text-xs text-slate-300 leading-relaxed italic resize-none break-words min-h-[120px]"
                       rows={Math.max(4, Math.ceil(q.justification.length / 50))}
                       value={q.justification}
                       onChange={e => {
