@@ -108,6 +108,65 @@
         "status": { "type": "string", "enum": ["unread", "read", "archived"] }
       },
       "required": ["name", "email", "message", "createdAt"]
+    },
+    "Conversation": {
+      "title": "User Conversation",
+      "description": "Conversation between user and admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "lastMessageAt"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "Individual message in a conversation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "conversationId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "userId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["id", "conversationId", "senderId", "userId", "text", "createdAt"]
+    },
+    "ExamAttempt": {
+      "title": "Exam Attempt",
+      "description": "Attempt record for a student on an exam.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "examId": { "type": "string" },
+        "studentId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "answers": { "type": "object" },
+        "score": { "type": "number" },
+        "attemptNumber": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "finalized"] },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "percentageScore": { "type": "number" }
+      },
+      "required": ["id", "examId", "studentId", "attemptNumber", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System notification for user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "link": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "title", "message", "read", "createdAt"]
     }
   },
   "firestore": {
@@ -134,6 +193,22 @@
     "support_messages/{messageId}": {
       "schema": "SupportMessage",
       "description": "Messages for admin support."
+    },
+    "conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "List of user conversations."
+    },
+    "conversations/{conversationId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a conversation."
+    },
+    "exam_attempts/{attemptId}": {
+      "schema": "ExamAttempt",
+      "description": "Student exam attempts."
+    },
+    "notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications."
     }
   }
 }

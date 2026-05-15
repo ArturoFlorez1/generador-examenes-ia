@@ -52,6 +52,7 @@ export interface Exam {
   creatorId: string;
   teacherName?: string;
   showTeacherInPdf?: boolean;
+  maxAttempts: number;
 }
 
 export interface Course {
@@ -91,6 +92,46 @@ export interface ExamResults {
   submittedAt: number;
 }
 
+export interface Conversation {
+  id: string;
+  userId: string;
+  lastMessageAt: number;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  userId: string;
+  text: string;
+  createdAt: number;
+  read: boolean;
+}
+
+export interface ExamAttempt {
+  id: string;
+  examId: string;
+  studentId: string;
+  studentName?: string;
+  courseId: string;
+  answers: Record<string, string>;
+  score: number;
+  attemptNumber: number;
+  status: 'pending' | 'in_progress' | 'finalized';
+  submittedAt?: number;
+  percentageScore: number;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  link: string;
+  read: boolean;
+  createdAt: number;
+}
+
 export interface QuestionDistribution {
   multiple_choice: number;
   open_question: number;
@@ -114,4 +155,5 @@ export interface ExamParams {
   semester: string;
   questionTypes: QuestionType[];
   distribution?: QuestionDistribution;
+  maxAttempts: number;
 }

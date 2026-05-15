@@ -10,10 +10,14 @@ import {
   ClipboardCheck,
   BrainCircuit,
   Key,
-  KeyRound
+  KeyRound,
+  CheckCircle,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Course, Exam } from '../types';
+import { Course, Exam, ExamAttempt } from '../types';
+import { examAttemptsService } from '../services/firestoreService';
 
 interface CourseDetailProps {
   course: Course;
@@ -25,6 +29,130 @@ interface CourseDetailProps {
   onCreateExam?: () => void;
   onDownloadExam?: (exam: Exam, includeAnswers: boolean) => void;
 }
+
+const ExamResultsToggle: React.FC<{ examId: string }> = ({ examId }) => {
+    const [showResults, setShowResults] = useState(false);
+
+    return (
+        <div className="space-y-4">
+            <button 
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setShowResults(!showResults);
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    showResults 
+                        ? 'bg-slate-900 text-white' 
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+            >
+                <Users size={14} />
+                {showResults ? 'Ocultar Resultados' : 'Ver Resultados de Estudiantes'}
+            </button>
+
+            {showResults && (
+                <div onClick={e => e.stopPropagation()}>
+                    <StudentResultsTable examId={examId} />
+                </div>
+            )}
+        </div>
+    );
+};
+
+const StudentResultsTable: React.FC<{ examId: string }> = ({ examId }) => {
+    const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
+    const [loading, setLoading] = useState(true);
+    
+    useEffect(() => {
+        setLoading(true);
+        const unsub = examAttemptsService.subscribeToAttempts(examId, (data) => {
+            setAttempts(data.sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0)));
+            setLoading(false);
+        });
+        return () => unsub();
+    }, [examId]);
+    
+    if (loading) return (
+        <div className="flex items-center gap-2 py-4">
+            <div className="w-4 h-4 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cargando resultados...</span>
+        </div>
+    );
+
+    if (attempts.length === 0) return (
+        <div className="py-6 px-4 bg-white/50 rounded-2xl border border-slate-100 flex flex-col items-center gap-2 mt-4">
+            <AlertCircle size={20} className="text-slate-300" />
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Aún no hay intentos registrados.</p>
+        </div>
+    );
+
+    return (
+        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100">
+                            <th className="px-5 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Estudiante</th>
+                            <th className="px-5 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
+                            <th className="px-5 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Puntaje</th>
+                            <th className="px-5 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Fecha</th>
+                            <th className="px-5 py-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Intento</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                        {attempts.map(attempt => (
+                            <tr key={attempt.id} className="hover:bg-slate-50/50 transition-colors">
+                                <td className="px-5 py-4">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-black text-slate-900 uppercase truncate max-w-[150px]">
+                                            {attempt.studentName || 'Estudiante'}
+                                        </span>
+                                        <span className="text-[9px] font-mono text-slate-400">ID: {attempt.studentId.substring(0, 8)}</span>
+                                    </div>
+                                </td>
+                                <td className="px-5 py-4">
+                                    <div className="flex items-center gap-2">
+                                        {attempt.status === 'finalized' ? (
+                                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-600 rounded-full text-[8px] font-black uppercase flex items-center gap-1">
+                                                <CheckCircle size={10}/> Finalizado
+                                            </span>
+                                        ) : attempt.status === 'in_progress' ? (
+                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-600 rounded-full text-[8px] font-black uppercase flex items-center gap-1">
+                                                <Clock size={10}/> En curso
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[8px] font-black uppercase flex items-center gap-1">
+                                                <AlertCircle size={10}/> Pendiente
+                                            </span>
+                                        )}
+                                    </div>
+                                </td>
+                                <td className="px-5 py-4">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-sm font-black ${attempt.percentageScore >= 60 ? 'text-emerald-600' : 'text-slate-900'}`}>
+                                            {attempt.percentageScore.toFixed(1)}%
+                                        </span>
+                                        <span className="text-[10px] text-slate-300 font-bold">({attempt.score}/5.0)</span>
+                                    </div>
+                                </td>
+                                <td className="px-5 py-4">
+                                    <span className="text-[10px] font-bold text-slate-500">
+                                        {attempt.submittedAt ? new Date(attempt.submittedAt).toLocaleDateString() : 'En curso'}
+                                    </span>
+                                </td>
+                                <td className="px-5 py-4 text-center">
+                                    <span className="bg-slate-100 w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-slate-900 mx-auto border border-slate-200 shadow-sm">
+                                        {attempt.attemptNumber}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
 
 export const CourseDetail: React.FC<CourseDetailProps> = ({ 
   course, 
@@ -153,7 +281,7 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({
                       <div className="bg-brand-primary/10 p-4 rounded-2xl text-brand-primary group-hover:bg-brand-primary group-hover:text-white transition-all duration-300">
                         <FileText size={24} />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h4 className="font-bold text-lg text-slate-900 group-hover:text-brand-primary transition-colors uppercase tracking-tight">{exam.title}</h4>
                         <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 mt-1 font-black uppercase tracking-widest">
                           {exam.teacherName && (
@@ -166,7 +294,14 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({
                           }`}>{exam.difficulty}</span>
                           <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
                           <span>{exam.questions.length} PREGUNTAS</span>
+                          <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                          <span className="text-slate-900">{exam.maxAttempts || 1} INTENTOS PERMITIDOS</span>
                         </div>
+                        {role === 'teacher' && (
+                            <div className="mt-4">
+                                <ExamResultsToggle examId={exam.id} />
+                            </div>
+                        )}
                       </div>
                     </div>
 

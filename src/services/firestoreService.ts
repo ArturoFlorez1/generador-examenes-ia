@@ -10,12 +10,14 @@ import {
   onSnapshot,
   serverTimestamp,
   setDoc,
+  orderBy,
   DocumentData,
   QuerySnapshot,
-  arrayUnion
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Exam, Course, Enrollment } from '../types';
+import { Exam, Course, Enrollment, ExamAttempt } from '../types';
 
 export enum OperationType {
   CREATE = 'create',
@@ -436,15 +438,18 @@ export const coursesService = {
 };
 
 export const usersService = {
-  async getAll(): Promise<any[]> {
+  subscribeToAllUsers(callback: (users: any[]) => void) {
     const path = 'users';
-    try {
-      const snap = await getDocs(collection(db, path));
-      return snap.docs.map(doc => ({ ...doc.data(), uid: doc.id }));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, path);
-      return [];
-    }
+    return onSnapshot(
+      collection(db, path),
+      (snap) => {
+        callback(snap.docs.map(doc => ({ ...doc.data(), uid: doc.id })));
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, path);
+        callback([]);
+      }
+    );
   },
 
   async updateProfile(uid: string, data: any): Promise<void> {
@@ -458,4 +463,197 @@ export const usersService = {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
   }
+};
+
+export const chatService = {
+  async sendMessage(conversationId: string, senderId: string, text: string): Promise<void> {
+    const path = `conversations/${conversationId}/messages`;
+    try {
+      await addDoc(collection(db, path), {
+        conversationId,
+        senderId,
+        userId: conversationId, // Required by blueprint
+        text,
+        createdAt: serverTimestamp(),
+        read: false
+      });
+
+      // Recipient logic: if I'm the owner of the conversation, it's for admin. 
+      // If I'm NOT the owner (I'm admin), it's for the owner.
+      const recipientId = senderId === conversationId ? 'admin' : conversationId;
+
+      // Use setDoc with merge: true to ensure the conversation document exists
+      await setDoc(doc(db, 'conversations', conversationId), {
+        id: conversationId,
+        userId: conversationId, // Required by blueprint
+        lastMessage: text,
+        lastMessageAt: serverTimestamp(),
+        lastMessageSenderId: senderId,
+        participants: arrayUnion(senderId),
+        unreadFor: arrayUnion(recipientId),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async deleteConversation(conversationId: string): Promise<void> {
+      const convRef = doc(db, 'conversations', conversationId);
+      const messagesPath = `conversations/${conversationId}/messages`;
+      const messagesCol = collection(db, messagesPath);
+
+      try {
+          // 1. Delete all messages
+          const snapshot = await getDocs(messagesCol);
+          for (const messageDoc of snapshot.docs) {
+              await deleteDoc(messageDoc.ref);
+          }
+          // 2. Delete conversation
+          await deleteDoc(convRef);
+      } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, `conversations/${conversationId}`);
+      }
+  },
+  
+  subscribeToConversation(conversationId: string, callback: (messages: any[]) => void) {
+      const path = `conversations/${conversationId}/messages`;
+      const q = query(collection(db, path), orderBy('createdAt', 'asc'));
+      return onSnapshot(
+        q, 
+        (snapshot) => {
+          callback(snapshot.docs.map(doc => ({...doc.data(), id: doc.id})));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, path);
+          callback([]);
+        }
+      );
+  },
+
+  subscribeToUserConversations(userId: string, isAdmin: boolean, callback: (conversations: any[]) => void) {
+    const path = 'conversations';
+    let q;
+    if (isAdmin) {
+      q = query(collection(db, path), orderBy('lastMessageAt', 'desc'));
+    } else {
+      q = query(collection(db, path), where('id', '==', userId));
+    }
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        callback(snapshot.docs.map(doc => ({...doc.data(), id: doc.id})));
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, path);
+        callback([]);
+      }
+    );
+  },
+
+  async deleteMessage(conversationId: string, messageId: string): Promise<void> {
+    const path = `conversations/${conversationId}/messages/${messageId}`;
+    try {
+      await deleteDoc(doc(db, 'conversations', conversationId, 'messages', messageId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  async markAsRead(conversationId: string): Promise<void> {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+
+    try {
+      const messagesPath = `conversations/${conversationId}/messages`;
+      // 1. Mark individual messages as read (limit to 50 at a time to be safe)
+      const q = query(
+        collection(db, messagesPath), 
+        where('read', '==', false)
+      );
+      
+      const snapshot = await getDocs(q);
+      const unreadDocs = snapshot.docs.filter(d => d.data().senderId !== userId);
+      
+      if (unreadDocs.length > 0) {
+        const promises = unreadDocs.map(messageDoc => 
+          updateDoc(doc(db, messagesPath, messageDoc.id), { read: true })
+        );
+        await Promise.all(promises);
+      }
+
+      // 2. Remove me from unreadFor in the conversation record
+      const roleInUnread = conversationId === userId ? userId : 'admin';
+      const convRef = doc(db, 'conversations', conversationId);
+      
+      await updateDoc(convRef, {
+        unreadFor: arrayRemove(roleInUnread)
+      });
+    } catch (error) {
+      // Use a more specific error handler that doesn't spam as much
+      const errorStr = String(error);
+      if (!errorStr.includes('permission-denied') && !errorStr.includes('permissions')) {
+        handleFirestoreError(error, OperationType.UPDATE, `conversations/${conversationId}`);
+      } else {
+        console.warn(`[Chat] markAsRead permission denied for ${conversationId} - this is normal if rules are still propagating`);
+      }
+    }
+  }
+};
+
+export const examAttemptsService = {
+    async createAttempt(attempt: Omit<ExamAttempt, 'id'>): Promise<string> {
+        const path = 'exam_attempts';
+        try {
+            const data = {
+                ...attempt,
+                submittedAt: attempt.submittedAt || Date.now()
+            };
+            const docRef = await addDoc(collection(db, path), data);
+            return docRef.id;
+        } catch (error) {
+            handleFirestoreError(error, OperationType.WRITE, path);
+            return '';
+        }
+    },
+    subscribeToAttempts(examId: string, callback: (attempts: ExamAttempt[]) => void) {
+        const path = 'exam_attempts';
+        const q = query(collection(db, path), where('examId', '==', examId));
+        return onSnapshot(
+            q,
+            (snap) => {
+                callback(snap.docs.map(doc => ({...doc.data(), id: doc.id} as ExamAttempt)));
+            },
+            (error) => {
+                handleFirestoreError(error, OperationType.GET, path);
+                callback([]);
+            }
+        );
+    },
+    async getAttemptsForExam(examId: string): Promise<ExamAttempt[]> {
+        const path = 'exam_attempts';
+        try {
+            const q = query(collection(db, path), where('examId', '==', examId));
+            const snap = await getDocs(q);
+            return snap.docs.map(doc => ({...doc.data(), id: doc.id} as ExamAttempt));
+        } catch (error) {
+            handleFirestoreError(error, OperationType.GET, path);
+            return [];
+        }
+    }
+};
+
+export const notificationsService = {
+    async notify(userId: string, title: string, message: string, link: string): Promise<void> {
+        const path = 'notifications';
+        await addDoc(collection(db, path), {
+            userId,
+            title,
+            message,
+            link,
+            read: false,
+            createdAt: serverTimestamp()
+        });
+    }
 };

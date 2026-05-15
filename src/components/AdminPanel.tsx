@@ -18,7 +18,7 @@ import {
   AlertTriangle,
   TrendingUp
 } from 'lucide-react';
-import { collection, query, getDocs, updateDoc, doc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, updateDoc, doc, serverTimestamp, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -37,6 +37,9 @@ import {
 } from 'recharts';
 
 import { useAuth } from '../lib/AuthContext';
+import { ChatList } from './Chat/ChatList';
+import { ChatWindow } from './Chat/ChatWindow';
+import { chatService, usersService, examsService } from '../services/firestoreService';
 
 export const AdminPanel: React.FC = () => {
   const { profile } = useAuth();
@@ -47,47 +50,38 @@ export const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'metrics' | 'users' | 'exams' | 'messages'>('metrics');
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<any[]>([]);
   const [userToDelete, setUserToDelete] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchData = async () => {
-    if (profile?.role !== 'admin' && profile?.email !== 'florezarturo1816@gmail.com') {
-       console.warn("Unauthorized access attempt to AdminPanel data.");
-       setLoading(false);
-       return;
-    }
-    
-    // Basic guard to prevent unnecessary calls if component is mounted by accident or during transitions
-    if (loading === false && users.length > 0) return; // Prevent double loads if not needed
-    
-    setLoading(true);
-    try {
-      const [usersSnap, examsSnap, subSnap, msgSnap] = await Promise.all([
-        getDocs(query(collection(db, 'users'))),
-        getDocs(query(collection(db, 'exams'))),
-        getDocs(query(collection(db, 'submissions'))),
-        getDocs(query(collection(db, 'support_messages')))
-      ]);
-      
-      const usersData = usersSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      const examsData = examsSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      const subData = subSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      const msgData = msgSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      
-      setUsers(usersData);
-      setExams(examsData);
-      setSubmissions(subData);
-      setMessages(msgData.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
-    } catch (error) {
-      console.error("Error fetching admin data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (profile?.role !== 'admin' && profile?.email !== 'florezarturo1816@gmail.com') return;
+
+    // Real-time users
+    const unsubUsers = usersService.subscribeToAllUsers(setUsers);
+    
+    // Real-time exams
+    const unsubExams = examsService.subscribeToExams(setExams);
+
+    // Initial load for attempts (they will stay in sync if we had a subscribeAllAttempts)
+    // For now we'll do a one-time fetch or better, we can add subscribeToAllAttempts
+    const attemptsPath = 'exam_attempts';
+    const unsubAttempts = onSnapshot(collection(db, attemptsPath), (snap) => {
+        setSubmissions(snap.docs.map(doc => ({...doc.data(), id: doc.id})));
+    });
+
+    const unsubConversations = chatService.subscribeToUserConversations(profile.uid, true, setConversations);
+
+    setLoading(false);
+
+    return () => {
+        unsubUsers();
+        unsubExams();
+        unsubAttempts();
+        unsubConversations();
+    };
+  }, [profile?.uid, profile?.role, profile?.email]);
 
   const stats = useMemo(() => {
     const totalScore = submissions.reduce((acc, curr) => acc + (curr.score || 0), 0);
@@ -162,7 +156,6 @@ export const AdminPanel: React.FC = () => {
         roleRequest: 'approved',
         updatedAt: serverTimestamp()
       });
-      fetchData();
     } catch (error) {
       console.error("Error updating role:", error);
     }
@@ -175,7 +168,6 @@ export const AdminPanel: React.FC = () => {
         roleRequest: 'rejected',
         updatedAt: serverTimestamp()
       });
-      fetchData();
     } catch (error) {
       console.error("Error rejecting request:", error);
     }
@@ -189,7 +181,6 @@ export const AdminPanel: React.FC = () => {
         status: 'replied',
         repliedAt: serverTimestamp()
       });
-      fetchData();
     } catch (error) {
       console.error("Error replying to message:", error);
     }
@@ -242,20 +233,25 @@ export const AdminPanel: React.FC = () => {
       {/* Tabs */}
       <div className="flex items-center bg-slate-100 p-1.5 rounded-3xl w-fit">
         {[
-          { id: 'metrics', label: 'Métricas de Uso', icon: BarChart3 },
-          { id: 'users', label: 'Usuarios', icon: Users },
-          { id: 'exams', label: 'Repositorio', icon: FileText },
-          { id: 'messages', label: 'Mensajes de Soporte', icon: MessageSquare }
+          { id: 'metrics', label: 'Métricas de Uso', icon: BarChart3, count: 0 },
+          { id: 'users', label: 'Usuarios', icon: Users, count: stats.pendingRequests },
+          { id: 'exams', label: 'Repositorio', icon: FileText, count: 0 },
+          { id: 'messages', label: 'Mensajes de Soporte', icon: MessageSquare, count: conversations.filter(c => c.unreadFor?.includes('admin')).length }
         ].map(tab => (
           <button 
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black transition-all relative ${
               activeTab === tab.id ? 'bg-white text-slate-900 shadow-xl shadow-slate-200' : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             <tab.icon size={16} />
             {tab.label}
+            {tab.count > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center bg-red-500 text-white text-[10px] rounded-full border-2 border-white animate-bounce shadow-lg">
+                {tab.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -673,22 +669,30 @@ export const AdminPanel: React.FC = () => {
       {activeTab === 'messages' && (
         <div className="space-y-6 animate-in fade-in duration-500">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Buzón de Soporte</h2>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Buzón de Soporte (Chat)</h2>
             <div className="bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm text-[10px] font-black uppercase text-slate-400">
-              {messages.length} Mensajes recibidos
+              {conversations.length} Conversaciones activas
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            {messages.map((msg) => (
-              <MessageItem key={msg.id} msg={msg} onReply={handleReplyMessage} />
-            ))}
-            {messages.length === 0 && (
-              <div className="p-20 text-center space-y-4 bg-white rounded-[40px] border border-slate-100">
-                <Mail className="mx-auto text-slate-100" size={64} />
-                <p className="text-slate-400 text-sm font-medium italic">No hay mensajes de soporte en este momento.</p>
-              </div>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <ChatList 
+               selectedId={selectedConvId || undefined}
+               onSelect={(id) => setSelectedConvId(id)}
+            />
+            <div className="md:col-span-2">
+               {selectedConvId ? (
+                 <ChatWindow 
+                    conversationId={selectedConvId} 
+                    onDelete={() => setSelectedConvId(null)}
+                 />
+               ) : (
+                 <div className="h-[600px] bg-white rounded-[40px] border border-slate-100 flex flex-col items-center justify-center text-slate-400 gap-4">
+                    <MessageSquare size={48} className="opacity-20" />
+                    <p className="text-sm font-medium">Selecciona una conversación para responder</p>
+                 </div>
+               )}
+            </div>
           </div>
         </div>
       )}

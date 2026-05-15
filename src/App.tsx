@@ -24,7 +24,7 @@ import { AboutUs } from './components/AboutUs';
 import { UserProfile } from './components/UserProfile';
 import { Login } from './components/Login';
 import { generateExamQuestions } from './services/geminiService';
-import { examsService, coursesService } from './services/firestoreService';
+import { examsService, coursesService, chatService } from './services/firestoreService';
 import { useAuth } from './lib/AuthContext';
 import { Exam, ExamParams, Course } from './types';
 import { UNI_LOGO_URL } from './constants';
@@ -46,6 +46,18 @@ export default function App() {
   const [showApiKeyAlert, setShowApiKeyAlert] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [selectedCourseForExam, setSelectedCourseForExam] = useState<string | null>(null);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+
+  useEffect(() => {
+    if (!profile?.uid) return;
+    const isAdmin = profile.role === 'admin' || profile.email === 'florezarturo1816@gmail.com';
+    const unsub = chatService.subscribeToUserConversations(profile.uid, isAdmin, (convs) => {
+        const myUnreadId = isAdmin ? 'admin' : profile.uid;
+        const anyActive = convs.some(c => c.unreadFor?.includes(myUnreadId));
+        setHasUnreadMessages(anyActive);
+    });
+    return () => unsub();
+  }, [profile?.uid, profile?.role, profile?.email]);
 
   useEffect(() => {
     if (user && profile?.role === 'teacher') {
@@ -259,14 +271,19 @@ export default function App() {
               </>
             )}
             {role === 'admin' && (
-              <NavLink active={view === 'admin'} onClick={() => setView('admin')}>Panel Admin</NavLink>
+              <div className="relative">
+                <NavLink active={view === 'admin'} onClick={() => setView('admin')}>Panel Admin</NavLink>
+                {hasUnreadMessages && (
+                  <span className="absolute -top-1 -right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
+                )}
+              </div>
             )}
             
             <div className="w-px h-6 bg-slate-200" />
             
             <button 
               onClick={() => setView('profile')}
-              className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all border ${
+              className={`flex items-center gap-3 p-1.5 pr-4 rounded-2xl transition-all border relative ${
                 view === 'profile' ? 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary' : 'border-slate-100 hover:border-brand-primary/20 hover:bg-slate-50 text-slate-600'
               }`}
               title="Mi Perfil"
@@ -557,7 +574,14 @@ export default function App() {
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Soporte</h4>
             <ul className="text-sm text-slate-500 space-y-2">
               <li><button onClick={() => setView('help')} className="hover:text-brand-primary transition-colors text-left font-medium">Centro de Ayuda</button></li>
-              <li><button onClick={() => setView('contact')} className="hover:text-brand-primary transition-colors text-left font-medium">Contacto</button></li>
+              <li>
+                <button onClick={() => setView('contact')} className="hover:text-brand-primary transition-colors text-left font-medium flex items-center gap-2">
+                  Contacto
+                  {hasUnreadMessages && (
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-sm shadow-red-500/50"></span>
+                  )}
+                </button>
+              </li>
               <li><button onClick={() => setView('about')} className="hover:text-brand-primary transition-colors text-left font-medium">Acerca de nosotros</button></li>
               <li><button onClick={() => setView('privacy')} className="hover:text-brand-primary transition-colors text-left font-medium">Privacidad</button></li>
             </ul>

@@ -36,6 +36,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
     semester: '2026-1',
     difficulty: 'medio',
     numQuestions: 5,
+    maxAttempts: 1,
     questionTypes: ['multiple_choice'],
     distribution: {
       multiple_choice: 0,
@@ -200,6 +201,18 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
             </div>
 
             <div className="pt-6 border-t border-slate-100 grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Máximo de intentos</label>
+                <select
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-brand-primary transition-all font-bold text-slate-700 appearance-none"
+                    value={params.maxAttempts || 1}
+                    onChange={e => setParams({...params, maxAttempts: parseInt(e.target.value) || 1})}
+                >
+                    <option value={1}>1 intento</option>
+                    <option value={2}>2 intentos</option>
+                    <option value={999}>Ilimitados</option>
+                </select>
+              </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Semestre</label>
                 <select

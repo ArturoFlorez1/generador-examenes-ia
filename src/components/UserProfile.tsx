@@ -199,7 +199,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
               <div className="flex-1" />
               <button 
                 type="submit"
-                disabled={isUpdating || fullName === profile.fullName}
+                disabled={isUpdating || (fullName === profile.fullName && apiKey === (localStorage.getItem('gemini_api_key') || ''))}
                 className="w-full md:w-auto bg-brand-primary text-white px-10 py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-brand-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:bg-slate-200 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed"
               >
                 {isUpdating ? (

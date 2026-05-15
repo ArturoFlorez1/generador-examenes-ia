@@ -144,6 +144,7 @@ service cloud.firestore {
           isValidRoleAction(incoming(), existing()) ||
           incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'updatedAt'])
         );
+      allow delete: if isAdmin();
     }
 
     // 2. Exams Collection
@@ -155,10 +156,7 @@ service cloud.firestore {
         isEnrolled(resource.data.courseId)
       );
       
-      allow list: if isAdmin() || isTeacher() || (isSignedIn() && (
-        resource.data.creatorId == request.auth.uid ||
-        isEnrolled(resource.data.courseId)
-      )); 
+      allow list: if isSignedIn();
 
       allow create: if isTeacher() && isValidId(examId) && isValidExam(incoming()) && incoming().createdAt == request.time;
       
@@ -182,7 +180,7 @@ service cloud.firestore {
     // 2.2 Enrollments Collection
     match /enrollments/{enrollmentId} {
       allow get: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin() || isCourseOwner(resource.data.courseId));
-      allow list: if isAdmin() || (isSignedIn() && (resource.data.studentId == request.auth.uid || isCourseOwner(resource.data.courseId)));
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && isValidEnrollment(incoming(), enrollmentId) && incoming().enrolledAt == request.time;
       allow delete: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid) || (isSignedIn() && isCourseOwner(resource.data.courseId));
     }
@@ -190,7 +188,7 @@ service cloud.firestore {
     // 3. Submissions Collection
     match /submissions/{submissionId} {
       allow get: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow list: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow list: if isSignedIn();
       
       allow create: if isSignedIn() && incoming().studentId == request.auth.uid && incoming().submittedAt == request.time;
       allow update, delete: if isAdmin();
@@ -200,6 +198,48 @@ service cloud.firestore {
     match /support_messages/{messageId} {
       allow create: if true; // Allow anonymous or any user to send contact messages
       allow read, update, delete: if isAdmin();
+    }
+
+    // 5. ExamAttempts Collection
+    match /exam_attempts/{attemptId} {
+      allow get: if isSignedIn() && (
+        resource.data.studentId == request.auth.uid || 
+        isAdmin() || 
+        isTeacher()
+      );
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && incoming().studentId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
+    }
+
+    // 6. Conversations Collection
+    match /conversations/{conversationId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn() && (incoming().userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn() && (
+          get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid || isAdmin()
+        );
+        allow create: if isSignedIn() && (
+          incoming().userId == request.auth.uid || isAdmin()
+        );
+        allow update, delete: if isSignedIn() && (
+          get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid || isAdmin()
+        );
+      }
+    }
+
+    // 7. Notifications Collection
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && (
+        (resource != null && resource.data.userId == request.auth.uid) || 
+        isAdmin()
+      );
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }

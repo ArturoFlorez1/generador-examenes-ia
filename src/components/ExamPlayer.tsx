@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
   CheckCircle2, 
@@ -9,12 +9,15 @@ import {
   ChevronRight,
   ChevronLeft,
   XCircle,
-  BrainCircuit
+  BrainCircuit,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore';
+import { collection, serverTimestamp, getDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Exam, Question } from '../types';
+import { useAuth } from '../lib/AuthContext';
+import { Exam } from '../types';
+import { examAttemptsService } from '../services/firestoreService';
 import { UNI_LOGO_URL } from '../constants';
 
 interface ExamPlayerProps {
@@ -38,12 +41,29 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 'teacher' }) => {
+  const { profile } = useAuth();
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isFinished, setIsFinished] = useState(false);
   const [score, setScore] = useState(0);
+  const [attemptsAllowed, setAttemptsAllowed] = useState(exam.maxAttempts || 1);
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
+  const [checkingAttempts, setCheckingAttempts] = useState(mode === 'student');
   const [viewMode, setViewMode] = useState<'player' | 'questions'>(mode === 'student' ? 'player' : 'questions');
-
+  
+  useEffect(() => {
+    if (auth.currentUser && mode === 'student') {
+        setCheckingAttempts(true);
+        examAttemptsService.getAttemptsForExam(exam.id).then(attempts => {
+            const myAttempts = attempts.filter(a => a.studentId === auth.currentUser?.uid);
+            setAttemptsUsed(myAttempts.length);
+            setCheckingAttempts(false);
+        });
+    } else {
+        setCheckingAttempts(false);
+    }
+  }, [exam.id, auth.currentUser, mode]);
+ 
   const q = exam.questions[currentIdx];
   const isLast = currentIdx === exam.questions.length - 1;
 
@@ -52,6 +72,11 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
   };
 
   const calculateGrade = async () => {
+    if (attemptsUsed >= attemptsAllowed) {
+        alert("Has alcanzado el límite de intentos.");
+        return;
+    }
+      
     let correctCount = 0;
     exam.questions.forEach(question => {
       const userAnswer = answers[question.id]?.trim().toLowerCase();
@@ -61,27 +86,64 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
       }
     });
     const finalScore = Number(((correctCount / exam.questions.length) * 5).toFixed(1));
+    const percentageScore = Number(((correctCount / exam.questions.length) * 100).toFixed(1));
     setScore(finalScore);
     setIsFinished(true);
 
     if (auth.currentUser && mode === 'student') {
       try {
-        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        const studentName = userDoc.exists() ? userDoc.data()?.fullName : undefined;
-        
-        await addDoc(collection(db, 'submissions'), {
-          examId: exam.id,
-          studentId: auth.currentUser.uid,
-          studentName,
-          score: finalScore,
-          answers: answers,
-          submittedAt: serverTimestamp()
+        await examAttemptsService.createAttempt({
+            examId: exam.id,
+            studentId: auth.currentUser.uid,
+            studentName: profile?.fullName || auth.currentUser.displayName || auth.currentUser.email || 'Estudiante',
+            courseId: exam.courseId,
+            answers: answers,
+            score: finalScore,
+            percentageScore: percentageScore,
+            attemptNumber: attemptsUsed + 1,
+            status: 'finalized'
         });
       } catch (err) {
         console.error("Error saving submission:", err);
       }
     }
   };
+
+  const isBlocked = mode === 'student' && !checkingAttempts && attemptsUsed >= attemptsAllowed;
+
+  if (checkingAttempts) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <Loader2 className="animate-spin text-brand-primary" size={32} />
+        <p className="text-slate-500 font-medium">Verificando intentos...</p>
+      </div>
+    );
+  }
+
+  if (isBlocked && !isFinished) {
+    return (
+        <div className="max-w-2xl mx-auto animate-in zoom-in duration-500">
+            <div className="card p-12 text-center space-y-6">
+                <div className="w-24 h-24 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                    <XCircle size={48} />
+                </div>
+                <div className="space-y-2">
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Límite alcanzado</h1>
+                    <p className="text-slate-500 font-medium leading-relaxed">
+                        Has agotado los <strong>{attemptsAllowed}</strong> intentos permitidos para este examen.
+                        Contacta a tu docente si necesitas acceso adicional.
+                    </p>
+                </div>
+                <button 
+                    onClick={onClose}
+                    className="btn-primary w-full py-4 bg-slate-900"
+                >
+                    Volver al Menú
+                </button>
+            </div>
+        </div>
+    );
+  }
 
   if (isFinished) {
     return (
