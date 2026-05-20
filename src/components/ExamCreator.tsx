@@ -26,9 +26,7 @@ const SABER_PRO_COMPETENCIES = [
   'Razonamiento cuantitativo',
   'Competencias ciudadanas',
   'Comunicación escrita',
-  'Pensamiento científico',
-  'Análisis de información',
-  'Resolución de problemas'
+  'Inglés'
 ];
 
 export const ExamCreator: React.FC<ExamCreatorProps> = ({ 
@@ -250,7 +248,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
               ) : (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Competencias Evaluadas</label>
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Área Evaluada</label>
                         <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full font-bold uppercase">Requerido</span>
                     </div>
                     <div className="flex flex-wrap gap-2">

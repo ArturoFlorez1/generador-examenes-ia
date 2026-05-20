@@ -89,21 +89,29 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
   }
 
   const isSaberPro = course === 'Saber Pro';
-  const competenciesText = params.selectedCompetencies?.length 
-    ? `Competencias específicas a evaluar: ${params.selectedCompetencies.join(', ')}.`
+  const areasText = params.selectedCompetencies?.length 
+    ? `Módulos/Áreas Evaluadas: ${params.selectedCompetencies.join(', ')}.`
     : "";
 
   const saberProModePrompt = isSaberPro ? `
     AVISO: ESTÁS EN MODO SABER PRO / ICFES.
-    - Las preguntas deben seguir el modelo de evaluación por competencias del ICFES.
-    - Nivel de Competencia solicitado: ${difficulty === 'bajo' ? 'Interpretativo' : difficulty === 'medio' ? 'Argumentativo' : difficulty === 'alto' ? 'Propositivo' : 'Integral (Distribución variada de niveles Interpretativo, Argumentativo y Propositivo)'}.
-    - ${competenciesText}
-    - Contextualización: Cada pregunta debe partir de un contexto (situación, caso, texto, gráfico o tabla).
-    - Exigencia Cognitiva: Deben ser analíticas, evaluativas o propositivas según el nivel seleccionado. Si el nivel es 'Integral', varía el nivel cognitivo ENTRE preguntas (no dentro de la misma).
-    - Formato de respuesta: Predomina la Selección Múltiple con Única Respuesta (ICFES).
-    - Para 'saber_pro_case_analysis', usa un caso detallado y pregunta por la mejor solución o análisis.
-    - Para 'saber_pro_info_interpretation', provee datos y pide conclusiones válidas.
-    - Para 'saber_pro_context_based', la situación debe ser cotidiana o técnica profesional.
+    Debes seguir estrictamente la estructura académica de las pruebas de Estado en Colombia:
+
+    1. ÁREA EVALUADA (Contenido): ${areasText}
+       - Si el área es 'Inglés', las preguntas DEBEN ser generadas íntegramente en inglés, siguiendo el marco común europeo de referencia.
+       - Para las demás áreas, el contenido debe ser en español académico.
+
+    2. NIVEL DE COMPETENCIA (Habilidad Cognitiva): ${difficulty === 'bajo' ? 'Interpretativo' : difficulty === 'medio' ? 'Argumentativo' : difficulty === 'alto' ? 'Propositivo' : 'Integral (Mezcla de niveles)'}.
+       - Interpretativo: Comprender información, identificar ideas principales.
+       - Argumentativo: Justificar, relacionar enunciados, sustentar tesis.
+       - Propositivo: Plantear soluciones, establecer hipótesis, analizar consecuencias.
+
+    3. TIPO DE PREGUNTA (Formato): 
+       - Las preguntas deben ser contextualizadas (parten de un texto, caso, gráfico o tabla).
+       - Estructura: Enunciado (Contexto + Pregunta) + 4 opciones de respuesta (Selección Múltiple con Única Respuesta).
+       - Los distractores deben ser errores plausibles de razonamiento.
+
+    - Exigencia: Nivel profesional universitario.
   ` : "";
 
   const systemInstruction = `
@@ -122,13 +130,14 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     7. Incluir una "Recomendación para el docente".
     8. INSTRUCCIONES PARA PREGUNTAS TIPO ICFES / SABER PRO:
     Si generas preguntas de la categoría Saber Pro o ICFES:
-    - Utiliza estrictamente la estructura y marcos de referencia de Saber Pro.
+    - Utiliza estrictamente la estructura y marcos de referencia de Saber Pro/ICFES.
     - Lectura Crítica: Usa textos de complejidad académica; evalúa inferencias, intención del autor, tesis y argumentos.
-    - Razonamiento Cuantitativo: Usa situaciones de modelado, interpretación de datos, resolución de problemas prácticos.
-    - Competencias Ciudadanas: Usa dilemas éticos, toma de decisiones, análisis de marcos constitucionales y sociales.
-    - Los distractores deben ser plausibles y basados en errores comunes de razonamiento, NO en hechos falsos triviales.
-    - La competencia evaluada debe ser explícita y coherente con el tipo de pregunta según el Marco de Referencia Saber Pro.
-    9. Toda la respuesta debe estar estrictamente en español (Español Neutro). Evita términos técnicos en inglés a menos que sea estrictamente necesario para el tema.
+    - Razonamiento Cuantitativo: Situaciones de modelado, interpretación de datos, resolución de problemas.
+    - Competencias Ciudadanas: Dilemas éticos, análisis social, Constitución colombiana.
+    - Comunicación Escrita: Planteamiento de tesis y coherencia argumentativa.
+    - Inglés: Evaluación de comprensión gramatical y lectora según niveles A1 a C1 del MCER.
+    - Los distractores deben ser plausibles y basados en errores comunes de razonamiento.
+    9. Toda la respuesta debe estar en español (Español Neutro), EXCEPTO cuando el área evaluada sea 'Inglés', en cuyo caso el enunciado, las opciones y la justificación deben estar en INGLÉS.
     
     Contexto del Curso:
     - Curso: ${course}
