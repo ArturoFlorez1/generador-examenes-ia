@@ -7,9 +7,10 @@ import {
   Loader2,
   BrainCircuit,
   FileSearch,
-  Plus
+  Plus,
+  Target
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ExamParams, QuestionType, QuestionDistribution, Course } from '../types';
 
 interface ExamCreatorProps {
@@ -19,6 +20,16 @@ interface ExamCreatorProps {
   courses: Course[];
   initialCourseId?: string;
 }
+
+const SABER_PRO_COMPETENCIES = [
+  'Lectura crítica',
+  'Razonamiento cuantitativo',
+  'Competencias ciudadanas',
+  'Comunicación escrita',
+  'Pensamiento científico',
+  'Análisis de información',
+  'Resolución de problemas'
+];
 
 export const ExamCreator: React.FC<ExamCreatorProps> = ({ 
   onBack, 
@@ -38,6 +49,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
     numQuestions: 5,
     maxAttempts: 1,
     questionTypes: ['multiple_choice'],
+    selectedCompetencies: [],
     distribution: {
       multiple_choice: 0,
       open_question: 0,
@@ -49,16 +61,43 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
       saber_pro_quantitative_reasoning: 0,
       saber_pro_citizen_competencies: 0,
       saber_pro_written_communication: 0,
-      saber_pro_english: 0
+      saber_pro_english: 0,
+      saber_pro_info_interpretation: 0,
+      saber_pro_context_based: 0,
+      saber_pro_graphics_interpretation: 0,
+      saber_pro_case_analysis: 0
     }
   });
 
   const [showSaberPro, setShowSaberPro] = useState(false);
+  const isSaberPro = params.course === 'Saber Pro';
 
   const handleCourseChange = (courseId: string) => {
+    if (courseId === 'saber_pro') {
+      setParams({ 
+        ...params, 
+        courseId: 'saber_pro', 
+        course: 'Saber Pro',
+        selectedCompetencies: [],
+        distribution: Object.keys(params.distribution!).reduce((acc, key) => ({
+            ...acc,
+            [key]: 0
+        }), {} as QuestionDistribution)
+      });
+      return;
+    }
     const selectedCourse = courses.find(c => c.id === courseId);
     if (selectedCourse) {
-      setParams({ ...params, courseId: selectedCourse.id, course: selectedCourse.name });
+      setParams({ 
+        ...params, 
+        courseId: selectedCourse.id, 
+        course: selectedCourse.name,
+        difficulty: params.difficulty === 'integral' ? 'medio' : params.difficulty,
+        distribution: Object.keys(params.distribution!).reduce((acc, key) => ({
+            ...acc,
+            [key]: 0
+        }), {} as QuestionDistribution)
+      });
     }
   };
 
@@ -104,6 +143,16 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
     onGenerate(params);
   };
 
+  const toggleCompetency = (comp: string) => {
+    setParams(prev => {
+      const current = prev.selectedCompetencies || [];
+      const updated = current.includes(comp)
+        ? current.filter(c => c !== comp)
+        : [...current, comp];
+      return { ...prev, selectedCompetencies: updated };
+    });
+  };
+
   const traditionalTypes = [
       { id: 'multiple_choice', label: 'Opción Múltiple' },
       { id: 'open_question', label: 'Abierta / Respuesta Corta' },
@@ -113,12 +162,10 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
   ];
 
   const saberProTypes = [
-      { id: 'icfes_multiple_choice', label: 'Selección múltiple (ICFES)' },
-      { id: 'saber_pro_reading_critical', label: 'Saber Pro - Lectura Crítica' },
-      { id: 'saber_pro_quantitative_reasoning', label: 'Saber Pro - Razonamiento Cuantitativo' },
-      { id: 'saber_pro_citizen_competencies', label: 'Saber Pro - Competencias Ciudadanas' },
-      { id: 'saber_pro_written_communication', label: 'Saber Pro - Comunicación Escrita' },
-      { id: 'saber_pro_english', label: 'Saber Pro - Inglés' }
+      { id: 'icfes_multiple_choice', label: 'Selección múltiple ICFES' },
+      { id: 'saber_pro_case_analysis', label: 'Análisis de caso' },
+      { id: 'saber_pro_info_interpretation', label: 'Interpretación de información' },
+      { id: 'saber_pro_context_based', label: 'Preguntas contextualizadas' }
   ];
 
   const renderQuestionType = (type: {id: string, label: string}) => (
@@ -175,6 +222,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
                   value={params.courseId}
                   onChange={e => handleCourseChange(e.target.value)}
                 >
+                  <option value="saber_pro">Saber Pro</option>
                   {courses.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -182,22 +230,53 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase">Tema del examen</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-4 flex items-center text-slate-400 pointer-events-none">
-                    <BrainCircuit size={20} />
+              {!isSaberPro ? (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase">Tema del examen</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-4 flex items-center text-slate-400 pointer-events-none">
+                      <BrainCircuit size={20} />
+                    </div>
+                    <input
+                      required
+                      type="text"
+                      placeholder="Ej: Recursividad, POO, SQL..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-6 outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/5 transition-all text-lg font-medium"
+                      value={params.topic}
+                      onChange={e => setParams({...params, topic: e.target.value})}
+                    />
                   </div>
-                  <input
-                    required
-                    type="text"
-                    placeholder="Ej: Recursividad, POO, SQL..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-6 outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/5 transition-all text-lg font-medium"
-                    value={params.topic}
-                    onChange={e => setParams({...params, topic: e.target.value})}
-                  />
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Competencias Evaluadas</label>
+                        <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full font-bold uppercase">Requerido</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {SABER_PRO_COMPETENCIES.map(comp => (
+                            <button
+                                key={comp}
+                                type="button"
+                                onClick={() => {
+                                    toggleCompetency(comp);
+                                    // Update topic automatically for Saber Pro to pass validation
+                                    if (!params.topic || params.topic === 'Saber Pro Prep') {
+                                        setParams(prev => ({ ...prev, topic: 'Saber Pro Prep' }));
+                                    }
+                                }}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                                    params.selectedCompetencies?.includes(comp)
+                                        ? 'bg-brand-primary border-brand-primary text-white shadow-lg shadow-brand-primary/20'
+                                        : 'bg-white border-slate-200 text-slate-500 hover:border-brand-primary'
+                                }`}
+                            >
+                                {comp}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+              )}
             </div>
 
             <div className="pt-6 border-t border-slate-100 grid grid-cols-2 gap-4">
@@ -247,9 +326,11 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
           {/* Difficulty & Types */}
           <div className="card p-8 space-y-8">
             <div className="space-y-4">
-                <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Dificultad</label>
+                <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">
+                    {isSaberPro ? 'Nivel de competencia' : 'Dificultad'}
+                </label>
                 <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
-                  {(['bajo', 'medio', 'alto'] as const).map(d => (
+                  {(isSaberPro ? (['bajo', 'medio', 'alto', 'integral'] as const) : (['bajo', 'medio', 'alto'] as const)).map(d => (
                     <button
                       key={d}
                       type="button"
@@ -260,33 +341,54 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
                           : 'text-slate-400 hover:text-slate-600'
                       }`}
                     >
-                      <span>{d}</span>
+                      <span>
+                        {isSaberPro ? (
+                            d === 'bajo' ? 'Interpretativo' :
+                            d === 'medio' ? 'Argumentativo' : 
+                            d === 'alto' ? 'Propositivo' : 'Integral'
+                        ) : d}
+                      </span>
                     </button>
                   ))}
                 </div>
             </div>
 
             <div className="space-y-4">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Tipos de preguntas requeridas</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">
+                {isSaberPro ? 'Estructura de la prueba (Formato)' : 'Tipos de preguntas requeridas'}
+              </label>
               <div className="space-y-3">
-                {traditionalTypes.map(renderQuestionType)}
+                {!isSaberPro ? (
+                    <>
+                        {traditionalTypes.map(renderQuestionType)}
+                        <div className="pt-2 border-t border-slate-100">
+                             <button 
+                                type="button"
+                                onClick={() => setShowSaberPro(!showSaberPro)}
+                                className="w-full flex items-center justify-between p-3 bg-brand-primary/5 text-brand-primary rounded-2xl border border-brand-primary/20 text-xs font-black uppercase tracking-tight"
+                            >
+                                {showSaberPro ? 'Ocultar preguntas Saber Pro' : 'Incluir preguntas Saber Pro'}
+                                <Plus className={`transition-transform ${showSaberPro ? 'rotate-45' : ''}`} size={16} />
+                            </button>
 
-                <div className="pt-2 border-t border-slate-100">
-                    <button 
-                        type="button"
-                        onClick={() => setShowSaberPro(!showSaberPro)}
-                        className="w-full flex items-center justify-between p-3 bg-brand-primary/5 text-brand-primary rounded-2xl border border-brand-primary/20 text-xs font-black uppercase tracking-tight"
-                    >
-                        {showSaberPro ? 'Ocultar preguntas Saber Pro' : 'Incluir preguntas Saber Pro'}
-                        <Plus className={`transition-transform ${showSaberPro ? 'rotate-45' : ''}`} size={16} />
-                    </button>
-
-                    {showSaberPro && (
-                        <div className="space-y-3 pt-3">
-                           {saberProTypes.map(renderQuestionType)}
+                            {showSaberPro && (
+                                <div className="space-y-3 pt-3">
+                                   {saberProTypes.map(renderQuestionType)}
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </>
+                ) : (
+                    <div className="space-y-3">
+                        <div className="p-4 bg-brand-primary/10 rounded-2xl border border-brand-primary/20 mb-4">
+                            <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest flex items-center gap-2">
+                                <Sparkles size={14} /> Modo Saber Pro Activado
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium mt-1">Solo tipos de preguntas compatibles con el marco ICFES.</p>
+                        </div>
+                        {saberProTypes.map(renderQuestionType)}
+                    </div>
+                )}
               </div>
               {isOverLimit && (
                 <div className="flex items-center gap-2 text-rose-500 bg-rose-50 p-3 rounded-xl border border-rose-100">
@@ -306,7 +408,7 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
 
         <button 
           type="submit"
-          disabled={isGenerating || !params.topic || totalDistributed === 0 || isOverLimit}
+          disabled={isGenerating || !params.topic || totalDistributed === 0 || isOverLimit || (isSaberPro && (params.selectedCompetencies?.length || 0) === 0)}
           className="btn-primary w-full py-6 text-xl flex items-center justify-center gap-3 group relative overflow-hidden shadow-2xl shadow-brand-primary/30 disabled:grayscale disabled:opacity-50"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />

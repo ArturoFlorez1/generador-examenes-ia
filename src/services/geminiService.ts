@@ -78,20 +78,40 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
 
   let distributionText = "";
   if (distribution) {
-    distributionText = `Distribución por tipo:
-    - Opción Múltiple: ${distribution.multiple_choice}
-    - Abierta/Respuesta Corta: ${distribution.open_question}
-    - Estudio de Caso: ${distribution.case_study}
-    - Taller/Ejercicio: ${distribution.workshop}
-    - Verdadero o Falso: ${distribution.true_false}`;
+    distributionText = "Distribución por tipo de pregunta (Sigue esto estrictamente):\n";
+    Object.entries(distribution).forEach(([key, value]) => {
+      if (value > 0) {
+        distributionText += `- ${key}: ${value} preguntas\n`;
+      }
+    });
   } else {
     distributionText = `Formatos soportados: ${questionTypes.join(', ')}.`;
   }
+
+  const isSaberPro = course === 'Saber Pro';
+  const competenciesText = params.selectedCompetencies?.length 
+    ? `Competencias específicas a evaluar: ${params.selectedCompetencies.join(', ')}.`
+    : "";
+
+  const saberProModePrompt = isSaberPro ? `
+    AVISO: ESTÁS EN MODO SABER PRO / ICFES.
+    - Las preguntas deben seguir el modelo de evaluación por competencias del ICFES.
+    - Nivel de Competencia solicitado: ${difficulty === 'bajo' ? 'Interpretativo' : difficulty === 'medio' ? 'Argumentativo' : difficulty === 'alto' ? 'Propositivo' : 'Integral (Distribución variada de niveles Interpretativo, Argumentativo y Propositivo)'}.
+    - ${competenciesText}
+    - Contextualización: Cada pregunta debe partir de un contexto (situación, caso, texto, gráfico o tabla).
+    - Exigencia Cognitiva: Deben ser analíticas, evaluativas o propositivas según el nivel seleccionado. Si el nivel es 'Integral', varía el nivel cognitivo ENTRE preguntas (no dentro de la misma).
+    - Formato de respuesta: Predomina la Selección Múltiple con Única Respuesta (ICFES).
+    - Para 'saber_pro_case_analysis', usa un caso detallado y pregunta por la mejor solución o análisis.
+    - Para 'saber_pro_info_interpretation', provee datos y pide conclusiones válidas.
+    - Para 'saber_pro_context_based', la situación debe ser cotidiana o técnica profesional.
+  ` : "";
 
   const systemInstruction = `
     Eres un agente inteligente de apoyo a la evaluación educativa en Educación Superior, enfocado en la Licenciatura en Informática de la Universidad de Córdoba, Colombia.
     Tu función es asistir a docentes en la creación de instrumentos de evaluación basados en evidencias de aprendizaje (Cuestionarios, Estudios de Caso, Talleres) para Programación e Informática.
     
+    ${saberProModePrompt}
+
     Lineamientos obligatorios para CADA ítem:
     1. Alinear con un resultado de aprendizaje específico del tema.
     2. Indicar la competencia evaluada.
@@ -101,7 +121,7 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     6. Evaluar criterios de calidad internamente: Claridad, Coherencia, Pertinencia.
     7. Incluir una "Recomendación para el docente".
     8. INSTRUCCIONES PARA PREGUNTAS TIPO ICFES / SABER PRO:
-    Si generas preguntas tipo 'icfes_multiple_choice', 'saber_pro_reading_critical', 'saber_pro_quantitative_reasoning', 'saber_pro_citizen_competencies', 'saber_pro_written_communication', o 'saber_pro_english':
+    Si generas preguntas de la categoría Saber Pro o ICFES:
     - Utiliza estrictamente la estructura y marcos de referencia de Saber Pro.
     - Lectura Crítica: Usa textos de complejidad académica; evalúa inferencias, intención del autor, tesis y argumentos.
     - Razonamiento Cuantitativo: Usa situaciones de modelado, interpretación de datos, resolución de problemas prácticos.
@@ -113,8 +133,8 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     Contexto del Curso:
     - Curso: ${course}
     - Semestre: ${semester}
-    - Tema: ${topic}
-    - Nivel solicitado: ${difficulty}
+    - Tema o Enfoque: ${topic}
+    - Nivel/Grado solicitado: ${difficulty === 'bajo' && isSaberPro ? 'Interpretativo' : difficulty === 'medio' && isSaberPro ? 'Argumentativo' : difficulty === 'alto' && isSaberPro ? 'Propositivo' : difficulty === 'integral' && isSaberPro ? 'Integral (Mezcla de niveles)' : difficulty}
     
     ${distributionText}
     
@@ -135,9 +155,11 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
           properties: {
             id: { type: Type.STRING },
             type: { type: Type.STRING, enum: [
-              'multiple_choice', 'open_question', 'case_study', 'workshop', 'true_false',
-              'icfes_multiple_choice', 'saber_pro_reading_critical', 'saber_pro_quantitative_reasoning',
-              'saber_pro_citizen_competencies', 'saber_pro_written_communication', 'saber_pro_english'
+                'multiple_choice', 'open_question', 'case_study', 'workshop', 'true_false',
+                'icfes_multiple_choice', 'saber_pro_reading_critical', 'saber_pro_quantitative_reasoning',
+                'saber_pro_citizen_competencies', 'saber_pro_written_communication', 'saber_pro_english',
+                'saber_pro_info_interpretation', 'saber_pro_context_based', 'saber_pro_graphics_interpretation',
+                'saber_pro_case_analysis', 'mixed_icfes'
             ] },
             prompt: { type: Type.STRING },
             options: { type: Type.ARRAY, items: { type: Type.STRING } },
@@ -206,7 +228,9 @@ export async function reformulateQuestion(question: Question, instructions: stri
           type: { type: Type.STRING, enum: [
               'multiple_choice', 'open_question', 'case_study', 'workshop', 'true_false',
               'icfes_multiple_choice', 'saber_pro_reading_critical', 'saber_pro_quantitative_reasoning',
-              'saber_pro_citizen_competencies', 'saber_pro_written_communication', 'saber_pro_english'
+              'saber_pro_citizen_competencies', 'saber_pro_written_communication', 'saber_pro_english',
+              'saber_pro_info_interpretation', 'saber_pro_context_based', 'saber_pro_graphics_interpretation',
+              'saber_pro_case_analysis', 'mixed_icfes'
             ] },
           prompt: { type: Type.STRING },
           options: { type: Type.ARRAY, items: { type: Type.STRING } },

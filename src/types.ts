@@ -15,6 +15,10 @@ export type QuestionType =
   | 'saber_pro_citizen_competencies'
   | 'saber_pro_written_communication'
   | 'saber_pro_english'
+  | 'saber_pro_info_interpretation'
+  | 'saber_pro_context_based'
+  | 'saber_pro_graphics_interpretation'
+  | 'saber_pro_case_analysis'
   | 'mixed_icfes';
 
 export interface QualityCriteria {
@@ -33,7 +37,7 @@ export interface Question {
   competence: string;
   learningOutcome: string;
   bloomLevel: string;
-  difficulty: 'bajo' | 'medio' | 'alto';
+  difficulty: 'bajo' | 'medio' | 'alto' | 'integral';
   difficultyJustification: string;
   qualityCriteria: QualityCriteria;
   teacherRecommendation: string;
@@ -144,16 +148,21 @@ export interface QuestionDistribution {
   saber_pro_citizen_competencies: number;
   saber_pro_written_communication: number;
   saber_pro_english: number;
+  saber_pro_info_interpretation: number;
+  saber_pro_context_based: number;
+  saber_pro_graphics_interpretation: number;
+  saber_pro_case_analysis: number;
 }
 
 export interface ExamParams {
   topic: string;
-  difficulty: 'bajo' | 'medio' | 'alto';
+  difficulty: 'bajo' | 'medio' | 'alto' | 'integral';
   numQuestions: number;
   course: string;
   courseId: string;
   semester: string;
   questionTypes: QuestionType[];
   distribution?: QuestionDistribution;
+  selectedCompetencies?: string[];
   maxAttempts: number;
 }
