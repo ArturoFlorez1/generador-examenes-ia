@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Question, Exam } from '../types';
 import { UNI_LOGO_URL } from '../constants';
 import { reformulateQuestion } from '../services/geminiService';
+import { SaberProQuestionGuide } from './SaberProQuestionGuide';
 
 interface QuestionReviewProps {
   exam: Partial<Exam>;
@@ -48,6 +49,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
   const [reformulatingId, setReformulatingId] = useState<string | null>(null);
   const [instructions, setInstructions] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [activeGuideDifficulty, setActiveGuideDifficulty] = useState<'bajo' | 'medio' | 'alto' | 'integral' | null>(null);
 
   const deleteQuestion = (id: string) => {
     setQuestions(prev => prev.filter(q => q.id !== id));
@@ -187,6 +189,15 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {exam.isSaberPro && (
+                      <button 
+                        onClick={() => setActiveGuideDifficulty(q.difficulty)}
+                        className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm border border-amber-200/30 group"
+                      >
+                        <BrainCircuit size={14} className="group-hover:rotate-12 transition-transform" />
+                        Ver Guía Estudiante
+                      </button>
+                    )}
                     <button 
                       onClick={() => setReformulatingId(q.id)}
                       className="flex items-center gap-2 px-4 py-2 bg-brand-primary/10 text-brand-primary rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all shadow-sm"
@@ -389,6 +400,12 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
           Finalizar Validación
         </button>
       </div>
+
+      <SaberProQuestionGuide 
+        difficulty={activeGuideDifficulty || 'bajo'}
+        isOpen={!!activeGuideDifficulty}
+        onClose={() => setActiveGuideDifficulty(null)}
+      />
     </div>
   );
 };

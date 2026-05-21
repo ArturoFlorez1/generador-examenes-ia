@@ -9,8 +9,11 @@ import {
   ChevronRight,
   ChevronLeft,
   XCircle,
+  Info,
   BrainCircuit,
-  Loader2
+  Loader2,
+  HelpCircle,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, serverTimestamp, getDoc, doc } from 'firebase/firestore';
@@ -19,6 +22,8 @@ import { useAuth } from '../lib/AuthContext';
 import { Exam } from '../types';
 import { examAttemptsService } from '../services/firestoreService';
 import { UNI_LOGO_URL } from '../constants';
+
+import { SaberProQuestionGuide } from './SaberProQuestionGuide';
 
 interface ExamPlayerProps {
   exam: Exam;
@@ -50,6 +55,8 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
   const [attemptsUsed, setAttemptsUsed] = useState(0);
   const [checkingAttempts, setCheckingAttempts] = useState(mode === 'student');
   const [viewMode, setViewMode] = useState<'player' | 'questions'>(mode === 'student' ? 'player' : 'questions');
+  const [showGuide, setShowGuide] = useState(false);
+  const [activeCognitiveGuide, setActiveCognitiveGuide] = useState(false);
   
   useEffect(() => {
     if (auth.currentUser && mode === 'student') {
@@ -249,8 +256,22 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          {mode !== 'student' && (
+          <div className="flex items-center gap-3">
+            {exam.isSaberPro && mode === 'student' && !isFinished && (
+              <button
+                onClick={() => setShowGuide(!showGuide)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${
+                  showGuide 
+                    ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' 
+                    : 'bg-white border-slate-200 text-amber-500 hover:border-amber-500/30'
+                }`}
+              >
+                <HelpCircle size={14} className={showGuide ? '' : 'animate-pulse'} />
+                <span>{showGuide ? 'Cerrar Guía' : 'Guía Saber Pro'}</span>
+              </button>
+            )}
+
+            {mode !== 'student' && (
             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
               <button 
                 onClick={() => setViewMode('questions')}
@@ -287,6 +308,69 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
         </div>
       </div>
 
+      <AnimatePresence>
+        {showGuide && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="card p-6 bg-gradient-to-br from-amber-50 to-white border-amber-200 shadow-xl shadow-amber-500/5 space-y-4">
+              <div className="flex items-center gap-3 text-amber-600">
+                <div className="p-2 bg-amber-100 rounded-xl">
+                  <BrainCircuit size={24} />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm uppercase tracking-wider">Estrategia de Resolución Saber Pro</h3>
+                  <p className="text-[10px] font-medium opacity-80 uppercase tracking-widest">Sigue estos pasos para mejorar tu desempeño</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  {
+                    step: "01",
+                    title: "Lectura de Contexto",
+                    desc: "Antes de ver las opciones, lee el texto o caso detalladamente. La respuesta DEBE estar sustentada allí."
+                  },
+                  {
+                    step: "02",
+                    title: "Identifica la Tarea",
+                    desc: "¿Te piden interpretar (qué dice), argumentar (por qué) o proponer (qué solución)?"
+                  },
+                  {
+                    step: "03",
+                    title: "Descarte Lógico",
+                    desc: "Elimina opciones que usen generalizaciones (siempre, nunca) o que sean verdaderas pero ajenas al contexto."
+                  },
+                  {
+                    step: "04",
+                    title: "La mejor opción",
+                    desc: "En Saber Pro, puede haber 2 opciones 'buenas', pero solo una es la más completa y precisa."
+                  }
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-3 items-start p-3 bg-white/50 rounded-xl border border-amber-100/50">
+                    <span className="text-xl font-black text-amber-200">{item.step}</span>
+                    <div className="space-y-1">
+                      <h4 className="text-[11px] font-black text-amber-700 uppercase tracking-tight">{item.title}</h4>
+                      <p className="text-[10px] text-slate-600 leading-relaxed font-medium">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <Sparkles size={12} className="text-amber-500" />
+                <p className="text-[9px] font-bold text-amber-600/70 uppercase tracking-widest italic">
+                  Recuerda: El razonamiento es más importante que la memoria.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {viewMode === 'player' ? (
         <>
           <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
@@ -303,8 +387,20 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="card p-8 md:p-12 space-y-8"
+              className="card p-8 md:p-12 space-y-8 relative overflow-hidden"
             >
+              {exam.isSaberPro && (
+                <div className="absolute top-0 right-0 p-4">
+                  <button
+                    onClick={() => setActiveCognitiveGuide(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-white rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all group"
+                  >
+                    <BrainCircuit size={14} className="group-hover:rotate-12 transition-transform" />
+                    <span>Guía de Nivel</span>
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-4">
                 <span className="text-[10px] font-black tracking-widest text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full uppercase">
                   {TYPE_LABELS[q.type] || q.type.replace('_', ' ')}
@@ -409,6 +505,18 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
                 <div className="space-y-1">
                   <h3 className="font-black text-slate-900 text-lg">{idx + 1}. {question.prompt}</h3>
                   <div className="flex items-center gap-2">
+                    {exam.isSaberPro && (
+                      <button
+                        onClick={() => {
+                          setCurrentIdx(idx);
+                          setActiveCognitiveGuide(true);
+                        }}
+                        className="flex items-center gap-2 px-3 py-1 bg-amber-500/10 text-amber-600 rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all shadow-sm border border-amber-200/30 group"
+                      >
+                        <BrainCircuit size={12} className="group-hover:rotate-12 transition-transform" />
+                        Guía Cognitiva
+                      </button>
+                    )}
                     <span className="text-[9px] font-black uppercase tracking-widest text-brand-primary bg-brand-primary/5 px-2 py-0.5 rounded-full">
                       {TYPE_LABELS[question.type]}
                     </span>
@@ -472,6 +580,11 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
           </button>
         </motion.div>
       )}
+      <SaberProQuestionGuide 
+        difficulty={exam.questions[currentIdx].difficulty}
+        isOpen={activeCognitiveGuide}
+        onClose={() => setActiveCognitiveGuide(false)}
+      />
     </div>
   );
 };

@@ -7,7 +7,9 @@ import {
   BrainCircuit, 
   BookOpen, 
   GraduationCap,
-  Key
+  Key,
+  HelpCircle,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Exam, Course } from '../types';
@@ -43,6 +45,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onEnroll
 }) => {
   const [selectedCourseId, setSelectedCourseId] = React.useState<string | null>(null);
+  const [showSaberProGuide, setShowSaberProGuide] = React.useState(false);
 
   const selectedCourse = React.useMemo(() => {
     return [...courses, ...enrolledCourses].find(c => c.id === selectedCourseId);
@@ -306,6 +309,101 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 value="Intermedio" 
               />
             </div>
+
+            {role === 'student' && (
+              <div className="animate-in slide-in-from-top-4 duration-500">
+                <button
+                  onClick={() => setShowSaberProGuide(!showSaberProGuide)}
+                  className={`w-full group flex items-center justify-between p-6 rounded-[32px] border transition-all ${
+                    showSaberProGuide 
+                      ? 'bg-amber-500 border-amber-500 text-white shadow-xl shadow-amber-500/20' 
+                      : 'bg-white border-slate-100 text-slate-600 hover:border-amber-200 hover:bg-amber-50/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-2xl ${showSaberProGuide ? 'bg-white/20' : 'bg-amber-50 text-amber-600'}`}>
+                      <HelpCircle size={24} />
+                    </div>
+                    <div className="text-left">
+                      <h3 className={`text-lg font-black uppercase tracking-tight ${showSaberProGuide ? 'text-white' : 'text-slate-900'}`}>
+                        Guía Maestra: Éxito en Saber Pro
+                      </h3>
+                      <p className={`text-[10px] font-bold uppercase tracking-widest ${showSaberProGuide ? 'text-white/80' : 'text-slate-400'}`}>
+                        {showSaberProGuide ? 'Haz clic para ocultar la guía' : 'Estrategias y consejos para responder preguntas ICFES'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className={`transition-transform duration-300 ${showSaberProGuide ? 'rotate-90' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {showSaberProGuide && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                      animate={{ opacity: 1, height: 'auto', marginTop: 16 }}
+                      exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="card p-8 bg-gradient-to-br from-amber-50 to-white border-amber-100 shadow-2xl shadow-amber-500/5 space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                          {[
+                            {
+                              step: "01",
+                              title: "Lectura Crítica del Contexto",
+                              desc: "Lee el enunciado detalladamente. En Saber Pro, la respuesta no depende solo de lo que sabes, sino de lo que el texto afirma explícitamente."
+                            },
+                            {
+                              step: "02",
+                              title: "Identifica la Competencia",
+                              desc: "Define si te piden INTERPRETAR (entender), ARGUMENTAR (validar razones) o PROPONER (solucionar problemas)."
+                            },
+                            {
+                              step: "03",
+                              title: "Elimina los Distractores",
+                              desc: "Descarta opciones que generalizan demasiado o aquellas que son verdaderas en la realidad pero no se mencionan en el texto."
+                            },
+                            {
+                              step: "04",
+                              title: "Selección de Precisión",
+                              desc: "Cuando dos opciones parezcan correctas, elige la que sea más completa y responda directamente a la pregunta formulada."
+                            }
+                          ].map((item, i) => (
+                            <div key={i} className="space-y-3 relative group">
+                              <span className="text-5xl font-black text-amber-200/50 absolute -top-4 -left-2 select-none group-hover:text-amber-300/50 transition-colors">
+                                {item.step}
+                              </span>
+                              <div className="relative z-10 pt-4">
+                                <h4 className="text-xs font-black text-amber-700 uppercase tracking-tight mb-2">
+                                  {item.title}
+                                </h4>
+                                <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                                  {item.desc}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-amber-100/30 rounded-2xl border border-amber-100/50">
+                          <div className="flex items-center gap-3">
+                            <Sparkles className="text-amber-500" size={20} />
+                            <p className="text-xs font-bold text-amber-700 uppercase tracking-widest">
+                              Recuerda: Razonamiento lógico sobre memorización de datos.
+                            </p>
+                          </div>
+                          <button 
+                            onClick={() => setShowSaberProGuide(false)}
+                            className="px-6 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
+                          >
+                            Entendido
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
 
             <div className="animate-in slide-in-from-bottom duration-500">
               {role === 'student' ? (

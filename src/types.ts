@@ -57,6 +57,7 @@ export interface Exam {
   teacherName?: string;
   showTeacherInPdf?: boolean;
   maxAttempts: number;
+  isSaberPro?: boolean;
 }
 
 export interface Course {
@@ -154,6 +155,10 @@ export interface QuestionDistribution {
   saber_pro_case_analysis: number;
 }
 
+export interface CompetencyDistribution {
+  [competency: string]: number;
+}
+
 export interface ExamParams {
   topic: string;
   difficulty: 'bajo' | 'medio' | 'alto' | 'integral';
@@ -164,5 +169,7 @@ export interface ExamParams {
   questionTypes: QuestionType[];
   distribution?: QuestionDistribution;
   selectedCompetencies?: string[];
+  competencyDistribution?: CompetencyDistribution;
+  isSaberPro?: boolean;
   maxAttempts: number;
 }

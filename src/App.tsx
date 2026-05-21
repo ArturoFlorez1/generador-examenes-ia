@@ -264,15 +264,15 @@ export default function App() {
           <div className="hidden md:flex items-center gap-8">
             {role !== 'admin' && (
               <>
-                <NavLink active={view === 'dashboard'} onClick={() => setView('dashboard')}>Dashboard</NavLink>
+                <NavLink active={view === 'dashboard'} onClick={() => setView('dashboard')}>Inicio</NavLink>
                 {role !== 'student' && (
-                  <NavLink active={view === 'resources'} onClick={() => setView('resources')}>Recursos AI</NavLink>
+                  <NavLink active={view === 'resources'} onClick={() => setView('resources')}>Herramientas IA</NavLink>
                 )}
               </>
             )}
             {role === 'admin' && (
               <div className="relative">
-                <NavLink active={view === 'admin'} onClick={() => setView('admin')}>Panel Admin</NavLink>
+                <NavLink active={view === 'admin'} onClick={() => setView('admin')}>Administración</NavLink>
                 {hasUnreadMessages && (
                   <span className="absolute -top-1 -right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
                 )}

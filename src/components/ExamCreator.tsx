@@ -48,6 +48,8 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
     maxAttempts: 1,
     questionTypes: ['multiple_choice'],
     selectedCompetencies: [],
+    competencyDistribution: {},
+    isSaberPro: false,
     distribution: {
       multiple_choice: 0,
       open_question: 0,
@@ -68,35 +70,69 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
   });
 
   const [showSaberPro, setShowSaberPro] = useState(false);
-  const isSaberPro = params.course === 'Saber Pro';
+  const isSaberPro = !!params.isSaberPro;
 
   const handleCourseChange = (courseId: string) => {
-    if (courseId === 'saber_pro') {
-      setParams({ 
-        ...params, 
-        courseId: 'saber_pro', 
-        course: 'Saber Pro',
-        selectedCompetencies: [],
-        distribution: Object.keys(params.distribution!).reduce((acc, key) => ({
-            ...acc,
-            [key]: 0
-        }), {} as QuestionDistribution)
-      });
-      return;
-    }
     const selectedCourse = courses.find(c => c.id === courseId);
     if (selectedCourse) {
       setParams({ 
         ...params, 
         courseId: selectedCourse.id, 
         course: selectedCourse.name,
-        difficulty: params.difficulty === 'integral' ? 'medio' : params.difficulty,
+        difficulty: params.difficulty === 'integral' && !params.isSaberPro ? 'medio' : params.difficulty,
         distribution: Object.keys(params.distribution!).reduce((acc, key) => ({
             ...acc,
             [key]: 0
-        }), {} as QuestionDistribution)
+        }), {} as QuestionDistribution),
+        competencyDistribution: {}
       });
     }
+  };
+
+  const toggleSaberProMode = () => {
+    setParams(prev => ({
+        ...prev,
+        isSaberPro: !prev.isSaberPro,
+        selectedCompetencies: [],
+        competencyDistribution: {},
+        difficulty: !prev.isSaberPro ? 'integral' : 'medio', 
+        distribution: Object.keys(prev.distribution!).reduce((acc, key) => ({
+            ...acc,
+            [key]: 0
+        }), {} as QuestionDistribution)
+    }));
+  };
+
+  const updateCompetencyDistribution = (comp: string, value: number) => {
+    const newCount = Math.max(0, value);
+    setParams(prev => {
+        const newCompDist = { ...(prev.competencyDistribution || {}), [comp]: newCount };
+        
+        let total = Object.values(newCompDist).reduce((a, b) => a + b, 0);
+        if (total > prev.numQuestions) {
+            let overflow = total - prev.numQuestions;
+            const keys = Object.keys(newCompDist);
+            for (const key of keys) {
+                if (key === comp) continue;
+                if (newCompDist[key] > 0) {
+                    const reduce = Math.min(overflow, newCompDist[key]);
+                    newCompDist[key] -= reduce;
+                    overflow -= reduce;
+                }
+                if (overflow === 0) break;
+            }
+        }
+
+        const selectedCompetencies = Object.entries(newCompDist)
+            .filter(([_, v]) => v > 0)
+            .map(([k, _]) => k);
+
+        return {
+            ...prev,
+            competencyDistribution: newCompDist,
+            selectedCompetencies
+        };
+    });
   };
 
   const updateDistribution = (type: keyof QuestionDistribution, value: number) => {
@@ -139,16 +175,6 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
     e.preventDefault();
     if (params.questionTypes.length === 0) return;
     onGenerate(params);
-  };
-
-  const toggleCompetency = (comp: string) => {
-    setParams(prev => {
-      const current = prev.selectedCompetencies || [];
-      const updated = current.includes(comp)
-        ? current.filter(c => c !== comp)
-        : [...current, comp];
-      return { ...prev, selectedCompetencies: updated };
-    });
   };
 
   const traditionalTypes = [
@@ -220,7 +246,6 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
                   value={params.courseId}
                   onChange={e => handleCourseChange(e.target.value)}
                 >
-                  <option value="saber_pro">Saber Pro</option>
                   {courses.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -228,49 +253,85 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
                 </select>
               </div>
 
-              {!isSaberPro ? (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase">Tema del examen</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-4 flex items-center text-slate-400 pointer-events-none">
-                      <BrainCircuit size={20} />
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase">Saber Pro</label>
+                    <div 
+                        onClick={toggleSaberProMode}
+                        className={`group cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-full transition-all border ${
+                            isSaberPro 
+                                ? 'bg-brand-primary border-brand-primary text-white shadow-lg shadow-brand-primary/20' 
+                                : 'bg-white border-slate-200 text-slate-400 hover:border-brand-primary/30'
+                        }`}
+                    >
+                        <Sparkles size={14} className={isSaberPro ? 'animate-pulse' : ''} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">
+                            {isSaberPro ? 'Activado' : 'Activar Modo'}
+                        </span>
                     </div>
-                    <input
-                      required
-                      type="text"
-                      placeholder="Ej: Recursividad, POO, SQL..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-6 outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/5 transition-all text-lg font-medium"
-                      value={params.topic}
-                      onChange={e => setParams({...params, topic: e.target.value})}
-                    />
-                  </div>
                 </div>
-              ) : (
-                <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                
+                {isSaberPro && (
+                  <div className="p-4 bg-brand-primary/5 rounded-2xl border border-brand-primary/20 animate-in zoom-in duration-300">
+                    <p className="text-[10px] font-medium text-brand-primary leading-relaxed">
+                      El modo Saber Pro adaptará el examen al marco de competencias del ICFES, utilizando contextos profesionales y razonamientos analíticos.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase">Tema del examen</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-4 flex items-center text-slate-400 pointer-events-none">
+                    <BrainCircuit size={20} />
+                  </div>
+                  <input
+                    required
+                    type="text"
+                    placeholder={isSaberPro ? "Ej: Razonamiento lógico en algoritmos, Comprensión de textos técnicos..." : "Ej: Recursividad, POO, SQL..."}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-6 outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/5 transition-all text-lg font-medium"
+                    value={params.topic}
+                    onChange={e => setParams({...params, topic: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              {isSaberPro && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500 pt-2 border-t border-slate-100">
                     <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Área Evaluada</label>
+                        <label className="text-[10px] font-black text-slate-400 tracking-widest px-1 uppercase">Áreas a Evaluar</label>
                         <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full font-bold uppercase">Requerido</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {SABER_PRO_COMPETENCIES.map(comp => (
-                            <button
-                                key={comp}
-                                type="button"
-                                onClick={() => {
-                                    toggleCompetency(comp);
-                                    // Update topic automatically for Saber Pro to pass validation
-                                    if (!params.topic || params.topic === 'Saber Pro Prep') {
-                                        setParams(prev => ({ ...prev, topic: 'Saber Pro Prep' }));
-                                    }
-                                }}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                                    params.selectedCompetencies?.includes(comp)
-                                        ? 'bg-brand-primary border-brand-primary text-white shadow-lg shadow-brand-primary/20'
-                                        : 'bg-white border-slate-200 text-slate-500 hover:border-brand-primary'
-                                }`}
-                            >
-                                {comp}
-                            </button>
+                            <div key={comp} className={`flex items-center justify-between gap-4 p-3 rounded-2xl border transition-all ${
+                                (params.competencyDistribution?.[comp] || 0) > 0
+                                    ? 'bg-brand-primary/5 border-brand-primary/30'
+                                    : 'bg-slate-50 border-slate-100'
+                            }`}>
+                                <span className={`text-[10px] font-black uppercase tracking-tight ${
+                                    (params.competencyDistribution?.[comp] || 0) > 0 ? 'text-brand-primary' : 'text-slate-600'
+                                }`}>{comp}</span>
+                                <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden h-8">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => updateCompetencyDistribution(comp, (params.competencyDistribution?.[comp] || 0) - 1)}
+                                        className="px-2 hover:bg-slate-100 font-bold text-xs"
+                                    >-</button>
+                                    <input 
+                                        type="number"
+                                        className="w-10 text-center text-xs font-bold outline-none border-none"
+                                        value={params.competencyDistribution?.[comp] || 0}
+                                        onChange={e => updateCompetencyDistribution(comp, parseInt(e.target.value) || 0)}
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => updateCompetencyDistribution(comp, (params.competencyDistribution?.[comp] || 0) + 1)}
+                                        className="px-2 hover:bg-slate-100 font-bold text-xs"
+                                    >+</button>
+                                </div>
+                            </div>
                         ))}
                     </div>
                 </div>

@@ -88,18 +88,29 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     distributionText = `Formatos soportados: ${questionTypes.join(', ')}.`;
   }
 
-  const isSaberPro = course === 'Saber Pro';
-  const areasText = params.selectedCompetencies?.length 
-    ? `Módulos/Áreas Evaluadas: ${params.selectedCompetencies.join(', ')}.`
-    : "";
+  const isSaberPro = !!params.isSaberPro;
+  const competencyDist = params.competencyDistribution || {};
+  const hasEnglishCompetency = (competencyDist['Inglés'] || 0) > 0;
+  
+  let competencyDistText = "";
+  if (Object.keys(competencyDist).length > 0) {
+    competencyDistText = "Distribución por ÁREA A EVALUAR (Sigue esto estrictamente):\n";
+    Object.entries(competencyDist).forEach(([key, value]) => {
+      if (value > 0) {
+        competencyDistText += `- ${key}: ${value} preguntas\n`;
+      }
+    });
+  }
 
   const saberProModePrompt = isSaberPro ? `
     AVISO: ESTÁS EN MODO SABER PRO / ICFES.
     Debes seguir estrictamente la estructura académica de las pruebas de Estado en Colombia:
 
-    1. ÁREA EVALUADA (Contenido): ${areasText}
-       - Si el área es 'Inglés', las preguntas DEBEN ser generadas íntegramente en inglés, siguiendo el marco común europeo de referencia.
+    1. ÁREA A EVALUAR (Contenido): 
+       - Respeta la distribución de áreas solicitada.
+       - Si la pregunta corresponde al área 'Inglés', el enunciado, opciones y justificación DEBEN estar en INGLÉS.
        - Para las demás áreas, el contenido debe ser en español académico.
+       - ${competencyDistText}
 
     2. NIVEL DE COMPETENCIA (Habilidad Cognitiva): ${difficulty === 'bajo' ? 'Interpretativo' : difficulty === 'medio' ? 'Argumentativo' : difficulty === 'alto' ? 'Propositivo' : 'Integral (Mezcla de niveles)'}.
        - Interpretativo: Comprender información, identificar ideas principales.
@@ -137,7 +148,7 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     - Comunicación Escrita: Planteamiento de tesis y coherencia argumentativa.
     - Inglés: Evaluación de comprensión gramatical y lectora según niveles A1 a C1 del MCER.
     - Los distractores deben ser plausibles y basados en errores comunes de razonamiento.
-    9. Toda la respuesta debe estar en español (Español Neutro), EXCEPTO cuando el área evaluada sea 'Inglés', en cuyo caso el enunciado, las opciones y la justificación deben estar en INGLÉS.
+    9. Toda la respuesta debe estar en español (Español Neutro), EXCEPTO cuando el área a evaluar sea 'Inglés' (${hasEnglishCompetency ? 'ESTÁ ACTIVADO' : 'NO ESTÁ ACTIVADO'}), en cuyo caso el enunciado, las opciones y la justificación deben estar COMPLETAMENTE en INGLÉS.
     
     Contexto del Curso:
     - Curso: ${course}
@@ -150,10 +161,14 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     IMPORTANTE: Genera EXACTAMENTE ${numQuestions} preguntas en total, respetando la distribución si fue proporcionada. El contenido debe ser académico, claro y preciso.
   `;
 
+  const userPrompt = hasEnglishCompetency 
+    ? `Genera ${numQuestions} ítems de evaluación sobre ${topic} para el curso ${course}. NOTA: Algunas preguntas pertenecen al área de 'Inglés' y deben estar en ese idioma según la distribución.`
+    : `Genera ${numQuestions} ítems de evaluación sobre ${topic} para el curso ${course}.`;
+
   const ai = getAI(apiKey);
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Genera ${numQuestions} ítems de evaluación sobre ${topic} para el curso ${course}.`,
+    contents: userPrompt,
     config: {
       systemInstruction,
       responseMimeType: "application/json",
