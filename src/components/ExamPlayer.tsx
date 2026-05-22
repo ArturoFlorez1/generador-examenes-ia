@@ -61,7 +61,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
   useEffect(() => {
     if (auth.currentUser && mode === 'student') {
         setCheckingAttempts(true);
-        examAttemptsService.getAttemptsForExam(exam.id).then(attempts => {
+        examAttemptsService.getAttemptsForExam(exam.id, { studentId: auth.currentUser?.uid || undefined }).then(attempts => {
             const myAttempts = attempts.filter(a => a.studentId === auth.currentUser?.uid);
             setAttemptsUsed(myAttempts.length);
             setCheckingAttempts(false);
@@ -104,6 +104,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
             studentId: auth.currentUser.uid,
             studentName: profile?.fullName || auth.currentUser.displayName || auth.currentUser.email || 'Estudiante',
             courseId: exam.courseId,
+            teacherId: exam.creatorId,
             answers: answers,
             score: finalScore,
             percentageScore: percentageScore,

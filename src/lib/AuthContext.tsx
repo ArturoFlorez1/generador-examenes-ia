@@ -56,6 +56,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               hasUpdates = true;
             }
 
+            // Migration: Existing users who don't have onboardingCompleted should be marked as completed
+            // so they don't see the tutorial. Only brand new users (initialized below) should see it.
+            if (data.onboardingCompleted === undefined) {
+              updates.onboardingCompleted = true;
+              hasUpdates = true;
+            }
+
             // Ensure enrolledCourseIds exists and is in sync with enrollments
             const profileEnrolledIds = data.enrolledCourseIds || [];
             
@@ -99,7 +106,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role: user.email === 'florezarturo1816@gmail.com' ? 'admin' : 'student',
                 roleRequest: 'none',
                 enrolledCourseIds: [],
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
+                onboardingCompleted: false
               };
               await setDoc(docRef, newProfile);
               setProfile(newProfile);
@@ -112,7 +120,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role: 'student',
                 roleRequest: 'none',
                 enrolledCourseIds: [],
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
+                onboardingCompleted: false
               };
               setProfile(fallbackProfile);
             }
@@ -139,12 +148,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const requestDocente = async () => {
-    if (!user) return;
+    if (!user || !profile) return;
     const docRef = doc(db, 'users', user.uid);
-    await setDoc(docRef, { 
-      roleRequest: 'pending',
+    const updates = { 
+      roleRequest: 'pending' as const,
       updatedAt: serverTimestamp() 
-    }, { merge: true });
+    };
+    await setDoc(docRef, updates, { merge: true });
+    setProfile({ ...profile, roleRequest: 'pending' });
   };
 
   const updateProfile = async (data: Partial<UserProfile>) => {

@@ -72,6 +72,57 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
   const [showSaberPro, setShowSaberPro] = useState(false);
   const isSaberPro = !!params.isSaberPro;
 
+  // Auto-rebalance distributions when numQuestions decreases
+  React.useEffect(() => {
+    setParams(prev => {
+        let needsUpdate = false;
+        const newDist = { ...prev.distribution || {} } as QuestionDistribution;
+        const totalDist = Object.values(newDist).reduce((a, b) => a + b, 0);
+        
+        if (totalDist > prev.numQuestions) {
+            needsUpdate = true;
+            let overflow = totalDist - prev.numQuestions;
+            const keys = Object.keys(newDist) as (keyof QuestionDistribution)[];
+            for (const key of keys) {
+                if (newDist[key] > 0) {
+                    const reduce = Math.min(overflow, newDist[key]);
+                    newDist[key] -= reduce;
+                    overflow -= reduce;
+                }
+                if (overflow === 0) break;
+            }
+        }
+
+        const newCompDist = { ...prev.competencyDistribution || {} };
+        const totalComp = Object.values(newCompDist).reduce((a, b) => a + b, 0);
+        if (totalComp > prev.numQuestions) {
+            needsUpdate = true;
+            let overflow = totalComp - prev.numQuestions;
+            const keys = Object.keys(newCompDist);
+            for (const key of keys) {
+                if (newCompDist[key] > 0) {
+                    const reduce = Math.min(overflow, newCompDist[key]);
+                    newCompDist[key] -= reduce;
+                    overflow -= reduce;
+                }
+                if (overflow === 0) break;
+            }
+        }
+
+        if (needsUpdate) {
+            return {
+                ...prev,
+                distribution: newDist,
+                competencyDistribution: newCompDist,
+                selectedCompetencies: Object.entries(newCompDist)
+                    .filter(([_, v]) => v > 0)
+                    .map(([k, _]) => k)
+            };
+        }
+        return prev;
+    });
+  }, [params.numQuestions]);
+
   const handleCourseChange = (courseId: string) => {
     const selectedCourse = courses.find(c => c.id === courseId);
     if (selectedCourse) {
@@ -367,14 +418,24 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Número de preguntas</label>
                 <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
-                  <button type="button" onClick={() => setParams(p => ({...p, numQuestions: Math.max(1, p.numQuestions - 1)}))} className="w-10 h-full hover:bg-slate-200 font-bold">-</button>
+                  <button type="button" onClick={() => {
+                    const newValue = Math.max(1, params.numQuestions - 1);
+                    setParams(p => ({
+                        ...p, 
+                        numQuestions: newValue,
+                        // Distribution balancing handled by useEffect or manual check here
+                    }));
+                  }} className="w-10 h-full hover:bg-slate-200 font-bold">-</button>
                   <input 
                     type="number"
                     min="1"
                     max="50"
                     className="flex-1 bg-transparent text-center font-bold outline-none border-none py-2"
                     value={params.numQuestions}
-                    onChange={e => setParams(p => ({...p, numQuestions: parseInt(e.target.value) || 1}))}
+                    onChange={e => {
+                        const newValue = parseInt(e.target.value) || 1;
+                        setParams(p => ({...p, numQuestions: newValue}));
+                    }}
                   />
                   <button type="button" onClick={() => setParams(p => ({...p, numQuestions: Math.min(50, p.numQuestions + 1)}))} className="w-10 h-full hover:bg-slate-200 font-bold">+</button>
                 </div>

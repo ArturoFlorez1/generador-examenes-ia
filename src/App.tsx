@@ -18,11 +18,12 @@ import { ExamPlayer } from './components/ExamPlayer';
 import { AIResources } from './components/AIResources';
 import { AdminPanel } from './components/AdminPanel';
 import { HelpCenter } from './components/HelpCenter';
-import { Contact } from './components/Contact';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { AboutUs } from './components/AboutUs';
 import { UserProfile } from './components/UserProfile';
 import { Login } from './components/Login';
+import { FloatingContact } from './components/FloatingContact';
+import { OnboardingTutorial } from './components/Onboarding/OnboardingTutorial';
 import { generateExamQuestions } from './services/geminiService';
 import { examsService, coursesService, chatService } from './services/firestoreService';
 import { useAuth } from './lib/AuthContext';
@@ -32,7 +33,7 @@ import { UNI_LOGO_URL } from './constants';
 export default function App() {
   const { user, profile, loading: authLoading, requestDocente, updateProfile, logout } = useAuth();
   const [role, setRole] = useState<'teacher' | 'student' | 'admin'>('student');
-  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin' | 'help' | 'contact' | 'about' | 'privacy' | 'profile'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin' | 'help' | 'about' | 'privacy' | 'profile'>('dashboard');
   const [exams, setExams] = useState<Exam[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
@@ -44,6 +45,7 @@ export default function App() {
     return !hidden;
   });
   const [showApiKeyAlert, setShowApiKeyAlert] = useState(false);
+  const [hasDismissedApiKeyAlert, setHasDismissedApiKeyAlert] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [selectedCourseForExam, setSelectedCourseForExam] = useState<string | null>(null);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
@@ -60,13 +62,13 @@ export default function App() {
   }, [profile?.uid, profile?.role, profile?.email]);
 
   useEffect(() => {
-    if (user && profile?.role === 'teacher') {
+    if (user && profile?.role === 'teacher' && !hasDismissedApiKeyAlert) {
       const apiKey = localStorage.getItem('gemini_api_key');
       if (!apiKey) {
         setShowApiKeyAlert(true);
       }
     }
-  }, [user, profile]);
+  }, [user, profile, hasDismissedApiKeyAlert]);
 
   // Load and Sync with Firestore
   useEffect(() => {
@@ -86,7 +88,7 @@ export default function App() {
       unsubscribers.push(
         examsService.subscribeToExams((data) => {
           setExams(data);
-        })
+        }, profile.role === 'teacher' ? user.uid : undefined)
       );
       unsubscribers.push(
         coursesService.subscribeToTeacherCourses(user.uid, (data) => {
@@ -314,43 +316,12 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-12">
-        {/* Name Prompt for ALL users missing name */}
-        {!authLoading && profile && !profile.fullName && view !== 'profile' && (
-          <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
-            >
-              <div className="bg-brand-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center text-brand-primary mb-6">
-                <GraduationCap size={32} />
-              </div>
-              <h2 className="text-2xl font-black text-slate-900 mb-2">¡Hola, bienvenido!</h2>
-              <p className="text-slate-500 mb-8 font-medium">Por favor, ingresa tu nombre completo para completar tu perfil en EvaluAI.</p>
-              
-              <form onSubmit={handleUpdateName} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre Completo</label>
-                  <input 
-                    required
-                    name="fullName"
-                    type="text"
-                    placeholder="Ej: Arturo José Florez Causil"
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 outline-none focus:border-brand-primary transition-all font-bold text-slate-700"
-                  />
-                </div>
-                <button 
-                  type="submit"
-                  className="w-full bg-brand-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
-                >
-                  Confirmar Identidad
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
+      {/* Onboarding Tutorial for new users */}
+      {!authLoading && profile && profile.onboardingCompleted === false && (
+        <OnboardingTutorial />
+      )}
 
-        {/* API Key Prompt for Teachers */}
+      {/* API Key Prompt for Teachers */}
         {showApiKeyAlert && (
           <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
             <motion.div 
@@ -380,7 +351,10 @@ export default function App() {
               </div>
 
               <button 
-                onClick={() => setShowApiKeyAlert(false)}
+                onClick={() => {
+                  setShowApiKeyAlert(false);
+                  setHasDismissedApiKeyAlert(true);
+                }}
                 className="w-full bg-brand-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
               >
                 Entendido
@@ -525,10 +499,6 @@ export default function App() {
           <HelpCenter onBack={() => setView('dashboard')} />
         )}
 
-        {view === 'contact' && (
-          <Contact onBack={() => setView('dashboard')} />
-        )}
-
         {view === 'privacy' && (
           <PrivacyPolicy onBack={() => setView('dashboard')} />
         )}
@@ -574,14 +544,6 @@ export default function App() {
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-widest">Soporte</h4>
             <ul className="text-sm text-slate-500 space-y-2">
               <li><button onClick={() => setView('help')} className="hover:text-brand-primary transition-colors text-left font-medium">Centro de Ayuda</button></li>
-              <li>
-                <button onClick={() => setView('contact')} className="hover:text-brand-primary transition-colors text-left font-medium flex items-center gap-2">
-                  Contacto
-                  {hasUnreadMessages && (
-                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-sm shadow-red-500/50"></span>
-                  )}
-                </button>
-              </li>
               <li><button onClick={() => setView('about')} className="hover:text-brand-primary transition-colors text-left font-medium">Acerca de nosotros</button></li>
               <li><button onClick={() => setView('privacy')} className="hover:text-brand-primary transition-colors text-left font-medium">Privacidad</button></li>
             </ul>
@@ -591,6 +553,7 @@ export default function App() {
           <p className="text-xs text-slate-400 font-medium">© 2026 Universidad de Córdoba, Colombia. Todos los derechos reservados.</p>
         </div>
       </footer>
+      <FloatingContact />
     </div>
   );
 }

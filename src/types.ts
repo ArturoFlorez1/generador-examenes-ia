@@ -73,6 +73,7 @@ export interface Enrollment {
   id: string;
   studentId: string;
   courseId: string;
+  teacherId?: string; // ID of the teacher who owns the course
   studentName?: string; // Cache for teacher display
   enrolledAt: number;
 }
@@ -85,6 +86,7 @@ export interface UserProfile {
   roleRequest: 'none' | 'pending' | 'approved' | 'rejected';
   enrolledCourseIds: string[];
   createdAt: any;
+  onboardingCompleted?: boolean;
 }
 
 export interface ExamResults {
@@ -119,6 +121,7 @@ export interface ExamAttempt {
   studentId: string;
   studentName?: string;
   courseId: string;
+  teacherId?: string; // ID of the teacher who owns the course/exam
   answers: Record<string, string>;
   score: number;
   attemptNumber: number;

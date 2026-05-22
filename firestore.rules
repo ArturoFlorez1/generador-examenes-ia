@@ -78,21 +78,26 @@ service cloud.firestore {
     }
 
     function isValidEnrollment(data, id) {
-      return data.keys().hasAll(['id', 'studentId', 'courseId', 'enrolledAt'])
-        && data.keys().size() >= 4
+      return data.keys().hasAll(['id', 'studentId', 'courseId', 'enrolledAt', 'teacherId'])
+        && data.keys().size() >= 5
         && data.id == id
         && data.id == data.studentId + '_' + data.courseId
         && data.studentId == request.auth.uid
         && data.enrolledAt is timestamp;
     }
 
+    function isValidAttempt(data) {
+      return data.keys().hasAll(['examId', 'studentId', 'courseId', 'teacherId', 'answers', 'score', 'attemptNumber', 'status'])
+        && data.studentId == request.auth.uid
+        && data.score is number
+        && data.attemptNumber is number;
+    }
+
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) 
-        && data.keys().size() >= 4
-        && data.uid is string && data.uid.size() <= 128
-        && data.email is string && data.email.size() <= 256
-        && data.role in ['student', 'teacher', 'admin']
-        && data.createdAt is timestamp;
+      return data.keys().hasAll(['uid', 'email', 'role']) 
+        && data.uid is string 
+        && data.email is string
+        && data.role in ['student', 'teacher', 'admin'];
     }
 
     function isValidRoleAction(incoming, existing) {
@@ -100,8 +105,8 @@ service cloud.firestore {
       return (
         incoming.role == existing.role || isAdmin()
       ) && (
-        // Users can update their request status OR their enrollment list OR timestamp
-        incoming.diff(existing).affectedKeys().hasOnly(['roleRequest', 'updatedAt', 'enrolledCourseIds']) ||
+        // Users can update their request status OR their enrollment list OR profile fields
+        incoming.diff(existing).affectedKeys().hasOnly(['roleRequest', 'updatedAt', 'enrolledCourseIds', 'onboardingCompleted', 'fullName']) ||
         isAdmin()
       );
     }
@@ -136,14 +141,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin() || isTeacher());
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().uid == userId && incoming().uid == request.auth.uid && incoming().createdAt == request.time;
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().uid == userId;
       allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming()) 
         && incoming().uid == userId
-        && (isAdmin() || incoming().uid == request.auth.uid)
-        && (
-          isValidRoleAction(incoming(), existing()) ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'updatedAt'])
-        );
+        && isValidRoleAction(incoming(), existing());
       allow delete: if isAdmin();
     }
 
@@ -156,14 +157,18 @@ service cloud.firestore {
         isEnrolled(resource.data.courseId)
       );
       
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && (
+        isAdmin() || 
+        resource.data.creatorId == request.auth.uid ||
+        isEnrolled(resource.data.courseId)
+      );
 
-      allow create: if isTeacher() && isValidId(examId) && isValidExam(incoming()) && incoming().createdAt == request.time;
+      allow create: if isTeacher() && isValidId(examId) && isValidExam(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
       
       allow update: if isSignedIn() && isValidId(examId) && isOwner(existing().creatorId) && isValidExam(incoming())
         && incoming().creatorId == existing().creatorId
         && (
-          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'topic', 'course', 'courseId', 'questions', 'semester', 'difficulty', 'teacherName', 'showTeacherInPdf'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'topic', 'course', 'courseId', 'questions', 'semester', 'difficulty', 'teacherName', 'showTeacherInPdf', 'maxAttempts'])
         );
 
       allow delete: if isSignedIn() && isValidId(examId) && (isOwner(existing().creatorId) || isAdmin());
@@ -172,7 +177,7 @@ service cloud.firestore {
     // 2.1 Courses Collection
     match /courses/{courseId} {
       allow get, list: if isSignedIn();
-      allow create: if isTeacher() && isValidCourse(incoming()) && incoming().id == courseId && incoming().createdAt == request.time;
+      allow create: if isTeacher() && isValidCourse(incoming()) && incoming().id == courseId && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
       allow update: if (isOwner(existing().creatorId) || isAdmin()) && isValidCourse(incoming());
       allow delete: if isAdmin() || isCourseOwner(courseId);
     }
@@ -180,17 +185,21 @@ service cloud.firestore {
     // 2.2 Enrollments Collection
     match /enrollments/{enrollmentId} {
       allow get: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin() || isCourseOwner(resource.data.courseId));
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && isValidEnrollment(incoming(), enrollmentId) && incoming().enrolledAt == request.time;
+      allow list: if isSignedIn() && (
+        isAdmin() || 
+        resource.data.studentId == request.auth.uid || 
+        resource.data.get('teacherId', '') == request.auth.uid
+      );
+      allow create: if isSignedIn() && isValidEnrollment(incoming(), enrollmentId) && (incoming().enrolledAt == request.time || incoming().enrolledAt is timestamp);
       allow delete: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid) || (isSignedIn() && isCourseOwner(resource.data.courseId));
     }
 
     // 3. Submissions Collection
     match /submissions/{submissionId} {
       allow get: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
       
-      allow create: if isSignedIn() && incoming().studentId == request.auth.uid && incoming().submittedAt == request.time;
+      allow create: if isSignedIn() && incoming().studentId == request.auth.uid && (incoming().submittedAt == request.time || incoming().submittedAt is timestamp);
       allow update, delete: if isAdmin();
     }
 
@@ -205,29 +214,31 @@ service cloud.firestore {
       allow get: if isSignedIn() && (
         resource.data.studentId == request.auth.uid || 
         isAdmin() || 
-        isTeacher()
+        resource.data.get('teacherId', '') == request.auth.uid
       );
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && incoming().studentId == request.auth.uid;
+      allow list: if isSignedIn() && (
+        isAdmin() || 
+        resource.data.studentId == request.auth.uid || 
+        resource.data.get('teacherId', '') == request.auth.uid
+      );
+      allow create: if isSignedIn() && isValidAttempt(incoming());
       allow update: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
     }
 
     // 6. Conversations Collection
     match /conversations/{conversationId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn() && (incoming().userId == request.auth.uid || isAdmin());
-      allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow get: if isSignedIn() && (conversationId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
+      
+      allow create: if isSignedIn() && (conversationId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() && (conversationId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin() || (isSignedIn() && conversationId == request.auth.uid);
       
       match /messages/{messageId} {
-        allow get, list: if isSignedIn() && (
-          get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid || isAdmin()
-        );
-        allow create: if isSignedIn() && (
-          incoming().userId == request.auth.uid || isAdmin()
-        );
-        allow update, delete: if isSignedIn() && (
-          get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid || isAdmin()
-        );
+        allow read: if isSignedIn() && (conversationId == request.auth.uid || isAdmin());
+        allow create: if isSignedIn() && (conversationId == request.auth.uid || isAdmin())
+          && (incoming().senderId == request.auth.uid || isAdmin());
+        allow update, delete: if isSignedIn() && (conversationId == request.auth.uid || isAdmin());
       }
     }
 

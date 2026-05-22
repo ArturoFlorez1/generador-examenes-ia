@@ -6,9 +6,10 @@ import { useAuth } from '../../lib/AuthContext';
 interface ChatWindowProps {
   conversationId: string;
   onDelete?: () => void;
+  isFloating?: boolean;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, onDelete }) => {
+export const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, onDelete, isFloating }) => {
   const { profile } = useAuth();
   const [messages, setMessages] = useState<any[]>([]);
   const [text, setText] = useState('');
@@ -16,6 +17,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, onDelete
   const chatEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastMessageCount = useRef(0);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [msgToDelete, setMsgToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = chatService.subscribeToConversation(conversationId, (msgs) => {
@@ -57,22 +61,79 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, onDelete
     setIsSubmitting(false);
   };
 
-  const handleDelete = async () => {
-    if (confirm("¿Estás seguro de eliminar esta conversación completa?")) {
-        await chatService.deleteConversation(conversationId);
-        onDelete?.();
-    }
-  }
+  const confirmDeleteConversation = async () => {
+    await chatService.deleteConversation(conversationId);
+    setShowDeleteConfirm(false);
+    onDelete?.();
+  };
 
-  const handleDeleteMessage = async (messageId: string) => {
-    if (confirm("¿Eliminar este mensaje?")) {
-        await chatService.deleteMessage(conversationId, messageId);
+  const confirmDeleteMessage = async () => {
+    if (msgToDelete) {
+        await chatService.deleteMessage(conversationId, msgToDelete);
+        setMsgToDelete(null);
     }
-  }
+  };
 
   return (
-    <div className="flex flex-col h-[600px] bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+    <div className={`flex flex-col bg-white overflow-hidden relative ${isFloating ? 'h-full' : 'h-[600px] rounded-3xl border border-slate-100 shadow-sm'}`}>
+      {/* Custom Confirmation Overlays */}
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
+            <div className="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-200">
+                <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto text-red-500">
+                    <Trash2 size={32} />
+                </div>
+                <div className="space-y-2">
+                    <p className="text-lg font-black text-slate-900 leading-tight">¿Eliminar Conversación?</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Esta acción borrará permanentemente todos los mensajes para todos.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="py-4 rounded-2xl bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        onClick={confirmDeleteConversation}
+                        className="py-4 rounded-2xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all"
+                    >
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {msgToDelete && (
+        <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
+            <div className="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-200">
+                <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto text-red-500">
+                    <Trash2 size={32} />
+                </div>
+                <div className="space-y-2">
+                    <p className="text-lg font-black text-slate-900 leading-tight">¿Eliminar Mensaje?</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">Esta acción no se puede deshacer.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                        onClick={() => setMsgToDelete(null)}
+                        className="py-4 rounded-2xl bg-slate-50 text-slate-500 font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        onClick={confirmDeleteMessage}
+                        className="py-4 rounded-2xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-600 shadow-lg shadow-red-500/20 transition-all"
+                    >
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      <div className={`p-4 border-b border-slate-100 flex items-center justify-between ${isFloating ? 'bg-white' : 'bg-slate-50/50'}`}>
         <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white">
                 <User size={16} />
@@ -83,7 +144,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, onDelete
             </div>
         </div>
         <button 
-            onClick={handleDelete} 
+            onClick={() => setShowDeleteConfirm(true)} 
             className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
             title="Borrar Conversación"
         >
@@ -105,7 +166,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, onDelete
                             <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                             
                             <button 
-                                onClick={() => handleDeleteMessage(msg.id)}
+                                onClick={() => setMsgToDelete(msg.id)}
                                 className={`absolute -top-2 ${isMyMessage ? '-left-8' : '-right-8'} p-1.5 bg-white border border-slate-100 rounded-full text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all shadow-sm`}
                                 title="Eliminar mensaje"
                             >

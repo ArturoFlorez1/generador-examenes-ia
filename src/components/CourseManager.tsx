@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { Course, Enrollment, Exam } from '../types';
 import { PREDEFINED_COURSES } from '../constants';
 import { coursesService } from '../services/firestoreService';
@@ -45,7 +45,14 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, exams, onDelete, onSele
       
       const courseExamIds = exams.filter(e => e.courseId === course.id).map(e => e.id);
       if (courseExamIds.length > 0) {
-        const subSnap = await getDocs(query(collection(db, 'submissions'), where('examId', 'in', courseExamIds)));
+        // Use exam_attempts instead of legacy submissions
+        // Add teacherId filter to satisfy security rules
+        const q = query(
+          collection(db, 'exam_attempts'), 
+          where('examId', 'in', courseExamIds),
+          where('teacherId', '==', auth.currentUser?.uid)
+        );
+        const subSnap = await getDocs(q);
         setSubmissions(subSnap.docs.map(doc => ({ ...doc.data(), id: doc.id })));
       }
       setLoading(false);

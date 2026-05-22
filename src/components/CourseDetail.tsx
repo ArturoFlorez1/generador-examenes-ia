@@ -16,6 +16,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { db, auth } from '../lib/firebase';
 import { Course, Exam, ExamAttempt } from '../types';
 import { examAttemptsService } from '../services/firestoreService';
 
@@ -68,7 +69,7 @@ const StudentResultsTable: React.FC<{ examId: string }> = ({ examId }) => {
         const unsub = examAttemptsService.subscribeToAttempts(examId, (data) => {
             setAttempts(data.sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0)));
             setLoading(false);
-        });
+        }, { teacherId: auth.currentUser?.uid || undefined });
         return () => unsub();
     }, [examId]);
     

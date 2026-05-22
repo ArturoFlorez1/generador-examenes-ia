@@ -231,10 +231,16 @@ export const examsService = {
     };
   },
 
-  subscribeToExams(callback: (exams: Exam[]) => void) {
+  subscribeToExams(callback: (exams: Exam[]) => void, teacherId?: string) {
     const path = 'exams';
+    let q = query(collection(db, path), orderBy('createdAt', 'desc'));
+    
+    if (teacherId) {
+      q = query(collection(db, path), where('creatorId', '==', teacherId), orderBy('createdAt', 'desc'));
+    }
+
     return onSnapshot(
-      collection(db, path),
+      q,
       (snapshot: QuerySnapshot<DocumentData>) => {
         try {
           const exams = snapshot.docs.map(doc => {
@@ -242,7 +248,7 @@ export const examsService = {
             return {
               ...data,
               id: doc.id,
-              createdAt: data.createdAt?.toMillis() || Date.now()
+              createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : (typeof data.createdAt === 'number' ? data.createdAt : Date.now())
             } as Exam;
           });
           callback(exams);
@@ -256,7 +262,7 @@ export const examsService = {
         callback([]);
       }
     );
-  }
+  },
 };
 
 export const coursesService = {
@@ -344,6 +350,7 @@ export const coursesService = {
       id: enrollmentId,
       studentId,
       courseId,
+      teacherId: course.creatorId,
       studentName: studentName || auth.currentUser?.displayName || auth.currentUser?.email,
       enrolledAt: serverTimestamp()
     });
@@ -427,7 +434,15 @@ export const coursesService = {
   async getStudentsForCourse(courseId: string): Promise<Enrollment[]> {
     const path = 'enrollments';
     try {
-      const q = query(collection(db, path), where('courseId', '==', courseId));
+      const teacherId = auth.currentUser?.uid;
+      let q = query(collection(db, path), where('courseId', '==', courseId));
+      
+      // If NOT admin, force teacherId check to match security rules
+      // Note: We'd need to know if user is admin, but usually this is called by a teacher
+      if (teacherId) {
+        q = query(collection(db, path), where('courseId', '==', courseId), where('teacherId', '==', teacherId));
+      }
+      
       const snap = await getDocs(q);
       return snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Enrollment));
     } catch (error) {
@@ -537,7 +552,8 @@ export const chatService = {
     if (isAdmin) {
       q = query(collection(db, path), orderBy('lastMessageAt', 'desc'));
     } else {
-      q = query(collection(db, path), where('id', '==', userId));
+      // Filter by userId to match Firestore security rules requirements for non-admins
+      q = query(collection(db, path), where('userId', '==', userId));
     }
 
     return onSnapshot(
@@ -610,6 +626,7 @@ export const examAttemptsService = {
                 ...attempt,
                 submittedAt: attempt.submittedAt || Date.now()
             };
+            // Note: Validation rule requires examId, studentId, courseId, teacherId, answers, score, attemptNumber, status
             const docRef = await addDoc(collection(db, path), data);
             return docRef.id;
         } catch (error) {
@@ -617,9 +634,16 @@ export const examAttemptsService = {
             return '';
         }
     },
-    subscribeToAttempts(examId: string, callback: (attempts: ExamAttempt[]) => void) {
+    subscribeToAttempts(examId: string, callback: (attempts: ExamAttempt[]) => void, filterBy: { studentId?: string, teacherId?: string } = {}) {
         const path = 'exam_attempts';
-        const q = query(collection(db, path), where('examId', '==', examId));
+        let q = query(collection(db, path), where('examId', '==', examId));
+        
+        if (filterBy.studentId) {
+            q = query(collection(db, path), where('examId', '==', examId), where('studentId', '==', filterBy.studentId));
+        } else if (filterBy.teacherId) {
+            q = query(collection(db, path), where('examId', '==', examId), where('teacherId', '==', filterBy.teacherId));
+        }
+        
         return onSnapshot(
             q,
             (snap) => {
@@ -631,10 +655,17 @@ export const examAttemptsService = {
             }
         );
     },
-    async getAttemptsForExam(examId: string): Promise<ExamAttempt[]> {
+    async getAttemptsForExam(examId: string, filterBy: { studentId?: string, teacherId?: string } = {}): Promise<ExamAttempt[]> {
         const path = 'exam_attempts';
         try {
-            const q = query(collection(db, path), where('examId', '==', examId));
+            let q = query(collection(db, path), where('examId', '==', examId));
+            
+            if (filterBy.studentId) {
+                q = query(collection(db, path), where('examId', '==', examId), where('studentId', '==', filterBy.studentId));
+            } else if (filterBy.teacherId) {
+                q = query(collection(db, path), where('examId', '==', examId), where('teacherId', '==', filterBy.teacherId));
+            }
+            
             const snap = await getDocs(q);
             return snap.docs.map(doc => ({...doc.data(), id: doc.id} as ExamAttempt));
         } catch (error) {
