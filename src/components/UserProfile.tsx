@@ -9,15 +9,19 @@ import {
   ArrowLeft,
   Camera,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  TrendingUp,
+  Settings
 } from 'lucide-react';
-import { motion } from 'motion/react';
-import { UserProfile as UserProfileType } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
+import { UserProfile as UserProfileType, Exam } from '../types';
+import { AnalyticsPanel } from './AnalyticsPanel';
 
 interface UserProfileProps {
   profile: UserProfileType;
   examsCount: number;
   coursesCount: number;
+  exams: Exam[];
   onUpdate: (data: Partial<UserProfileType>) => Promise<void>;
   onBack: () => void;
 }
@@ -26,6 +30,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   profile, 
   examsCount, 
   coursesCount, 
+  exams,
   onUpdate, 
   onBack 
 }) => {
@@ -33,6 +38,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
   const [isUpdating, setIsUpdating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [secTab, setSecTab] = useState<'profile' | 'stats'>('profile');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,121 +121,174 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           </div>
         </div>
 
-        {/* Main Form */}
+        {/* Main Section */}
         <div className="md:col-span-2 space-y-6">
-          <form onSubmit={handleSubmit} className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm space-y-8">
-            <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-              <User className="text-brand-primary" size={24} /> Información Personal
-            </h3>
-
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nombre Completo</label>
-                <div className="relative">
-                  <User className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Ej. Arturo José Florez Causil"
-                    className="w-full bg-slate-50 border-2 border-slate-50 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-primary/20 transition-all outline-none"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Correo Electrónico</label>
-                <div className="relative">
-                  <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-                  <input 
-                    type="email"
-                    disabled
-                    className="w-full bg-slate-100 border-2 border-slate-100 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-400 cursor-not-allowed italic"
-                    value={profile.email}
-                  />
-                </div>
-                <p className="text-[9px] text-slate-400 font-medium ml-4 mt-2 italic flex items-center gap-1">
-                  <AlertCircle size={10} /> El correo electrónico no puede ser modificado por seguridad.
-                </p>
-              </div>
-
-              {profile.role === 'teacher' && (
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">API Key Personal (Gemini)</label>
-                  <div className="relative">
-                    <Shield className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-                    <input 
-                      type="password"
-                      placeholder="Introduce tu API Key personal"
-                      className="w-full bg-slate-50 border-2 border-slate-50 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-primary/20 transition-all outline-none"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                    />
-                  </div>
-                  <p className="text-[9px] text-slate-400 font-medium ml-4 mt-2 italic flex items-center gap-1">
-                    <AlertCircle size={10} /> 
-                    Tu clave se guarda localmente en este dispositivo.
-                    {' '}<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-brand-primary font-bold underline">Solicítala aquí.</a>
-                  </p>
-                </div>
+          {/* Main Tab Switcher */}
+          <div className="flex border-b border-slate-100 gap-6">
+            <button
+              onClick={() => setSecTab('profile')}
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${
+                secTab === 'profile' ? 'text-brand-primary' : 'text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Settings size={14} />
+                Editar Perfil
+              </span>
+              {secTab === 'profile' && (
+                <motion.div layoutId="profileTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />
               )}
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Rol en la Plataforma</label>
-                <div className="relative">
-                  <Shield className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-                  <input 
-                    type="text"
-                    disabled
-                    className="w-full bg-slate-100 border-2 border-slate-100 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-400 cursor-not-allowed uppercase tracking-wider"
-                    value={profile.role === 'admin' ? 'Administrador' : profile.role === 'teacher' ? 'Docente' : 'Estudiante'}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-6 border-t border-slate-50 flex flex-col md:flex-row items-center justify-between gap-6">
-              {showSuccess && (
-                <div className="flex items-center gap-2 text-emerald-500 font-black text-xs uppercase tracking-widest">
-                  <CheckCircle2 size={18} />
-                  ¡Perfil Actualizado!
-                </div>
+            </button>
+            <button
+              onClick={() => setSecTab('stats')}
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${
+                secTab === 'stats' ? 'text-brand-primary' : 'text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <TrendingUp size={14} />
+                Plan Saber Pro y Estadísticas
+              </span>
+              {secTab === 'stats' && (
+                <motion.div layoutId="profileTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />
               )}
-              <div className="flex-1" />
-              <button 
-                type="submit"
-                disabled={isUpdating || (fullName === profile.fullName && apiKey === (localStorage.getItem('gemini_api_key') || ''))}
-                className="w-full md:w-auto bg-brand-primary text-white px-10 py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-brand-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:bg-slate-200 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed"
-              >
-                {isUpdating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Actualizando...
-                  </>
-                ) : (
-                  <>
-                    <Save size={20} />
-                    Guardar Cambios
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Tips Card */}
-          <div className="bg-slate-50 p-8 rounded-[40px] border border-slate-100 flex items-start gap-6">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-primary shadow-sm flex-shrink-0">
-              <FileText size={24} />
-            </div>
-            <div>
-              <h4 className="font-black text-slate-900 uppercase tracking-tight">Privacidad y Seguridad</h4>
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">
-                Tu información se utiliza exclusivamente para la generación de instrumentos 
-                de evaluación y certificados dentro del semillero AVI.
-              </p>
-            </div>
+            </button>
           </div>
+
+          <AnimatePresence mode="wait">
+            {secTab === 'profile' ? (
+              <motion.div
+                key="profile"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="space-y-6"
+              >
+                <form onSubmit={handleSubmit} className="bg-white p-10 rounded-[40px] border border-slate-100 shadow-sm space-y-8">
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                    <User className="text-brand-primary" size={24} /> Información Personal
+                  </h3>
+
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nombre Completo</label>
+                      <div className="relative">
+                        <User className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                        <input 
+                          type="text"
+                          required
+                          placeholder="Ej. Arturo José Florez Causil"
+                          className="w-full bg-slate-50 border-2 border-slate-50 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-primary/20 transition-all outline-none"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Correo Electrónico</label>
+                      <div className="relative">
+                        <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                        <input 
+                          type="email"
+                          disabled
+                          className="w-full bg-slate-100 border-2 border-slate-100 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-400 cursor-not-allowed italic"
+                          value={profile.email}
+                        />
+                      </div>
+                      <p className="text-[9px] text-slate-400 font-medium ml-4 mt-2 italic flex items-center gap-1">
+                        <AlertCircle size={10} /> El correo electrónico no puede ser modificado por seguridad.
+                      </p>
+                    </div>
+
+                    {profile.role === 'teacher' && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">API Key Personal (Gemini)</label>
+                        <div className="relative">
+                          <Shield className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                          <input 
+                            type="password"
+                            placeholder="Introduce tu API Key personal"
+                            className="w-full bg-slate-50 border-2 border-slate-50 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-brand-primary/20 transition-all outline-none"
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                          />
+                        </div>
+                        <p className="text-[9px] text-slate-400 font-medium ml-4 mt-2 italic flex items-center gap-1">
+                          <AlertCircle size={10} /> 
+                          Tu clave se guarda localmente en este dispositivo.
+                          {' '}<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-brand-primary font-bold underline">Solicítala aquí.</a>
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Rol en la Plataforma</label>
+                      <div className="relative">
+                        <Shield className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
+                        <input 
+                          type="text"
+                          disabled
+                          className="w-full bg-slate-100 border-2 border-slate-100 p-5 pl-14 rounded-3xl text-sm font-bold text-slate-400 cursor-not-allowed uppercase tracking-wider"
+                          value={profile.role === 'admin' ? 'Administrador' : profile.role === 'teacher' ? 'Docente' : 'Estudiante'}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-50 flex flex-col md:flex-row items-center justify-between gap-6">
+                    {showSuccess && (
+                      <div className="flex items-center gap-2 text-emerald-500 font-black text-xs uppercase tracking-widest">
+                        <CheckCircle2 size={18} />
+                        ¡Perfil Actualizado!
+                      </div>
+                    )}
+                    <div className="flex-1" />
+                    <button 
+                      type="submit"
+                      disabled={isUpdating || (fullName === profile.fullName && apiKey === (localStorage.getItem('gemini_api_key') || ''))}
+                      className="w-full md:w-auto bg-brand-primary text-white px-10 py-5 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl shadow-brand-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:bg-slate-200 disabled:shadow-none disabled:scale-100 disabled:cursor-not-allowed"
+                    >
+                      {isUpdating ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Actualizando...
+                        </>
+                      ) : (
+                        <>
+                          <Save size={20} />
+                          Guardar Cambios
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Tips Card */}
+                <div className="bg-slate-50 p-8 rounded-[40px] border border-slate-100 flex items-start gap-6">
+                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-brand-primary shadow-sm flex-shrink-0">
+                    <FileText size={24} />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-900 uppercase tracking-tight">Privacidad y Seguridad</h4>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">
+                      Tu información se utiliza exclusivamente para la generación de instrumentos 
+                      de evaluación y certificados dentro del semillero AVI.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="stats"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+              >
+                <AnalyticsPanel userId={profile.uid} role={profile.role} exams={exams} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

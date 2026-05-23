@@ -165,21 +165,21 @@ service cloud.firestore {
 
       allow create: if isTeacher() && isValidId(examId) && isValidExam(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
       
-      allow update: if isSignedIn() && isValidId(examId) && isOwner(existing().creatorId) && isValidExam(incoming())
-        && incoming().creatorId == existing().creatorId
+      allow update: if isSignedIn() && isValidId(examId) && isOwner(existing().get('creatorId', '')) && isValidExam(incoming())
+        && incoming().creatorId == existing().get('creatorId', '')
         && (
           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'topic', 'course', 'courseId', 'questions', 'semester', 'difficulty', 'teacherName', 'showTeacherInPdf', 'maxAttempts'])
         );
 
-      allow delete: if isSignedIn() && isValidId(examId) && (isOwner(existing().creatorId) || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.get('creatorId', '') == request.auth.uid || isAdmin() || isTeacher());
     }
 
     // 2.1 Courses Collection
     match /courses/{courseId} {
       allow get, list: if isSignedIn();
       allow create: if isTeacher() && isValidCourse(incoming()) && incoming().id == courseId && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
-      allow update: if (isOwner(existing().creatorId) || isAdmin()) && isValidCourse(incoming());
-      allow delete: if isAdmin() || isCourseOwner(courseId);
+      allow update: if (resource.data.get('creatorId', '') == request.auth.uid || isAdmin()) && isValidCourse(incoming());
+      allow delete: if isSignedIn() && (resource.data.get('creatorId', '') == request.auth.uid || isAdmin() || isTeacher());
     }
 
     // 2.2 Enrollments Collection

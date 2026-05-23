@@ -155,7 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: serverTimestamp() 
     };
     await setDoc(docRef, updates, { merge: true });
-    setProfile({ ...profile, roleRequest: 'pending' });
+    setProfile(prev => prev ? { ...prev, roleRequest: 'pending' } : null);
   };
 
   const updateProfile = async (data: Partial<UserProfile>) => {
@@ -163,9 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const docRef = doc(db, 'users', user.uid);
     const updateData = { ...data, updatedAt: serverTimestamp() };
     await setDoc(docRef, updateData, { merge: true });
-    if (profile) {
-      setProfile({ ...profile, ...data });
-    }
+    setProfile(prev => prev ? { ...prev, ...data } : null);
   };
 
   const logout = async () => {

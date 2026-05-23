@@ -23,7 +23,7 @@ export const OnboardingTutorial: React.FC = () => {
 
   if (!profile || profile.onboardingCompleted !== false) return null;
 
-  const totalSteps = wantsToBeTeacher ? 5 : 3;
+  const totalSteps = wantsToBeTeacher ? 6 : 4;
 
   const nextStep = () => setStep(s => s + 1);
 
@@ -58,14 +58,14 @@ export const OnboardingTutorial: React.FC = () => {
               <Sparkles className="text-amber-500 shrink-0 mt-1" size={18} />
               <div>
                 <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Generación Inteligente</p>
-                <p className="text-[10px] text-slate-500 font-bold">Crea exámenes complejos en segundos usando los modelos Gemini Pro.</p>
+                <p className="text-[10px] text-slate-500 font-bold">Crea exámenes estructurados usando modelos Gemini, ajustando grado de dificultad, semestre y temáticas.</p>
               </div>
             </div>
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-3">
-              <ShieldCheck className="text-blue-500 shrink-0 mt-1" size={18} />
+              <GraduationCap className="text-blue-500 shrink-0 mt-1" size={18} />
               <div>
-                <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Evaluación Segura</p>
-                <p className="text-[10px] text-slate-500 font-bold">Registro detallado de intentos y resultados para docentes y estudiantes.</p>
+                <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Gestión Académica Completa</p>
+                <p className="text-[10px] text-slate-500 font-bold">Creación de cursos con códigos de acceso, inscripciones y seguimiento detallado por cada asignatura.</p>
               </div>
             </div>
           </div>
@@ -74,6 +74,34 @@ export const OnboardingTutorial: React.FC = () => {
     },
     {
       id: 2,
+      title: 'Todo en un Solo Lugar',
+      icon: <CheckCircle2 className="text-brand-primary" size={48} />,
+      content: (
+        <div className="space-y-4">
+          <p className="text-slate-600 font-medium leading-relaxed">
+            Hemos renovado nuestra plataforma para ofrecerte una experiencia integral.
+          </p>
+          <div className="grid grid-cols-1 gap-3">
+            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-start gap-3">
+              <User className="text-emerald-500 shrink-0 mt-1" size={18} />
+              <div>
+                <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Múltiples Roles</p>
+                <p className="text-[10px] text-slate-500 font-bold">Interfaces adaptadas para Estudiantes, Docentes y Administradores (aprobación de accesos).</p>
+              </div>
+            </div>
+            <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-start gap-3">
+              <ShieldCheck className="text-indigo-500 shrink-0 mt-1" size={18} />
+              <div>
+                <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Reportes y Recursos</p>
+                <p className="text-[10px] text-slate-500 font-bold">Analíticas de resultados, historial del progreso, centro de ayuda interactivo y asistencia en vivo.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 3,
       title: 'Identifícate en el Sistema',
       icon: <User className="text-brand-primary" size={48} />,
       content: (
@@ -95,7 +123,7 @@ export const OnboardingTutorial: React.FC = () => {
       )
     },
     {
-      id: 3,
+      id: 4,
       title: 'Elige tu Perfil Académico',
       icon: <GraduationCap className="text-brand-primary" size={48} />,
       content: (
@@ -115,7 +143,7 @@ export const OnboardingTutorial: React.FC = () => {
               </div>
               <div>
                 <p className={`text-sm font-black uppercase tracking-tight ${!wantsToBeTeacher ? 'text-brand-primary' : 'text-slate-900'}`}>Estudiante</p>
-                <p className="text-[10px] text-slate-500 font-bold mt-1">Inscríbete en cursos, presenta exámenes y revisa tus calificaciones.</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-1">Inscríbete en cursos con el código de tu profesor, presenta exámenes y revisa tus calificaciones al instante.</p>
               </div>
             </button>
             <button
@@ -129,7 +157,7 @@ export const OnboardingTutorial: React.FC = () => {
               </div>
               <div>
                 <p className={`text-sm font-black uppercase tracking-tight ${wantsToBeTeacher ? 'text-brand-primary' : 'text-slate-900'}`}>Docente</p>
-                <p className="text-[10px] text-slate-500 font-bold mt-1">Crea cursos, genera exámenes con IA y supervisa el progreso de tus grupos.</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-1">Crea cursos, obtén códigos, genera exámenes con IA parametrizables y revisa las analíticas de tu clase.</p>
               </div>
             </button>
           </div>
@@ -137,7 +165,7 @@ export const OnboardingTutorial: React.FC = () => {
       )
     },
     {
-      id: 4,
+      id: 5,
       title: 'Acceso para Docentes',
       icon: <ShieldCheck className="text-brand-primary" size={48} />,
       content: (
@@ -152,19 +180,19 @@ export const OnboardingTutorial: React.FC = () => {
           </div>
           <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100">
             <CheckCircle2 className="text-amber-600 shrink-0" size={18} />
-            <p className="text-[10px] text-amber-700 font-bold uppercase tracking-tight">Mientras esperas, puedes explorar el sistema como estudiante.</p>
+            <p className="text-[10px] text-amber-700 font-bold uppercase tracking-tight">Mientras esperas, puedes explorar el sistema como estudiante e inscribirte a cursos.</p>
           </div>
         </div>
       )
     },
     {
-      id: 5,
+      id: 6,
       title: 'Tu Propia Inteligencia Artificial',
       icon: <Key className="text-brand-primary" size={48} />,
       content: (
         <div className="space-y-6">
           <p className="text-slate-600 font-medium leading-relaxed text-sm">
-            Como docente, EvaluAI utiliza tu propia llave de Google AI Studio para generar contenido, dándote control total.
+            Como docente, EvaluAI utiliza tu propia llave de Google AI Studio para generar contenido, dándote control total de costos.
           </p>
           <div className="space-y-3">
             <div className="space-y-2">
@@ -177,7 +205,7 @@ export const OnboardingTutorial: React.FC = () => {
                 className="w-full p-5 rounded-3xl bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-brand-primary/10 focus:border-brand-primary focus:bg-white transition-all font-mono text-xs outline-none"
               />
             </div>
-            <p className="text-[10px] text-slate-400 font-bold text-center italic">Puedes configurar esto luego en tu perfil.</p>
+            <p className="text-[10px] text-slate-400 font-bold text-center italic">Puedes configurar esto luego en tu perfil, o usar los recursos de ayuda para ver cómo obtener una.</p>
           </div>
         </div>
       )
@@ -246,7 +274,7 @@ export const OnboardingTutorial: React.FC = () => {
 
           <button
             onClick={isLast ? handleFinish : nextStep}
-            disabled={step === 2 && !fullName}
+            disabled={step === 3 && !fullName}
             className="group btn-primary px-8 py-5 flex items-center gap-3 shadow-xl shadow-brand-primary/20 hover:scale-105 transition-all active:scale-95 disabled:grayscale disabled:opacity-50"
           >
             <span className="font-black text-[10px] uppercase tracking-widest">

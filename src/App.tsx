@@ -23,6 +23,7 @@ import { AboutUs } from './components/AboutUs';
 import { UserProfile } from './components/UserProfile';
 import { Login } from './components/Login';
 import { FloatingContact } from './components/FloatingContact';
+import { ConfirmModal } from './components/ConfirmModal';
 import { OnboardingTutorial } from './components/Onboarding/OnboardingTutorial';
 import { generateExamQuestions } from './services/geminiService';
 import { examsService, coursesService, chatService, usersService } from './services/firestoreService';
@@ -61,6 +62,10 @@ export default function App() {
   const [currentExam, setCurrentExam] = useState<Partial<Exam> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  
+  // Confirm Modal state
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
   const [showRoleRequest, setShowRoleRequest] = useState(() => {
     const hidden = localStorage.getItem('hide_role_request');
     return !hidden;
@@ -231,13 +236,19 @@ export default function App() {
   };
 
   const handleDeleteExam = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este examen?')) return;
-    try {
-      await examsService.delete(id);
-    } catch (err) {
-      console.error("Error deleting exam:", err);
-      alert("Error al eliminar el examen");
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Eliminar Examen',
+      message: '¿Estás seguro de que deseas eliminar este examen?',
+      onConfirm: async () => {
+        try {
+          await examsService.delete(id);
+        } catch (err) {
+          console.error("Error deleting exam:", err);
+          alert("Error al eliminar el examen");
+        }
+      }
+    });
   };
 
   const handleCreateCourse = async (name: string, description: string) => {
@@ -246,13 +257,19 @@ export default function App() {
   };
 
   const handleDeleteCourse = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este curso? Se perderán todas las inscripciones asociadas.')) return;
-    try {
-      await coursesService.delete(id);
-    } catch (err) {
-      console.error("Error deleting course:", err);
-      alert("Error al eliminar el curso: " + (err instanceof Error ? err.message : String(err)));
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'ADVERTENCIA: ¿Eliminar curso?',
+      message: '¿Estás seguro de que deseas eliminar este curso? \n\nAún estamos desarrollando esta función para asegurar que se eliminen también las inscripciones y exámenes asociados de forma permanente. Por ahora, solo se eliminará el acceso principal al curso.',
+      onConfirm: async () => {
+        try {
+          await coursesService.delete(id);
+        } catch (err) {
+          console.error("Error deleting course:", err);
+          alert("Error al eliminar el curso: " + (err instanceof Error ? err.message : String(err)));
+        }
+      }
+    });
   };
 
   const handleEnroll = async (code: string) => {
@@ -535,6 +552,7 @@ export default function App() {
             profile={profile}
             examsCount={exams.length}
             coursesCount={role === 'student' ? enrolledCourses.length : courses.length}
+            exams={exams}
             onUpdate={updateProfile}
             onBack={() => setView('dashboard')}
           />
@@ -577,6 +595,13 @@ export default function App() {
         </div>
       </footer>
       <FloatingContact />
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen} 
+        title={confirmModal.title} 
+        message={confirmModal.message} 
+        onConfirm={confirmModal.onConfirm} 
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} 
+      />
     </div>
   );
 }

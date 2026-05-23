@@ -136,6 +136,7 @@ export const examsService = {
       await deleteDoc(doc(db, 'exams', id));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
+      throw error;
     }
   },
 
@@ -259,13 +260,12 @@ export const coursesService = {
 
   async delete(id: string): Promise<void> {
     const path = `courses/${id}`;
-    console.log("Firestore delete called for:", path);
     try {
       await deleteDoc(doc(db, 'courses', id));
-      console.log("Firestore deleteDoc finished for:", path);
     } catch (error) {
       console.error("Firestore delete error:", error);
       handleFirestoreError(error, OperationType.DELETE, path);
+      throw error;
     }
   },
 
@@ -685,6 +685,28 @@ export const examAttemptsService = {
                 q = query(collection(db, path), where('examId', '==', examId), where('teacherId', '==', filterBy.teacherId));
             }
             
+            const snap = await getDocs(q);
+            return snap.docs.map(doc => ({...doc.data(), id: doc.id} as ExamAttempt));
+        } catch (error) {
+            handleFirestoreError(error, OperationType.GET, path);
+            return [];
+        }
+    },
+    async getStudentAttempts(studentId: string): Promise<ExamAttempt[]> {
+        const path = 'exam_attempts';
+        try {
+            const q = query(collection(db, path), where('studentId', '==', studentId));
+            const snap = await getDocs(q);
+            return snap.docs.map(doc => ({...doc.data(), id: doc.id} as ExamAttempt));
+        } catch (error) {
+            handleFirestoreError(error, OperationType.GET, path);
+            return [];
+        }
+    },
+    async getTeacherAttempts(teacherId: string): Promise<ExamAttempt[]> {
+        const path = 'exam_attempts';
+        try {
+            const q = query(collection(db, path), where('teacherId', '==', teacherId));
             const snap = await getDocs(q);
             return snap.docs.map(doc => ({...doc.data(), id: doc.id} as ExamAttempt));
         } catch (error) {

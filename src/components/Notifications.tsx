@@ -9,7 +9,6 @@ export const Notifications = () => {
     useEffect(() => {
         if (!auth.currentUser) return;
         
-        console.log("Firestore notifications query started:", { userId: auth.currentUser.uid, path: 'notifications' });
         const q = query(
             collection(db, 'notifications'), 
             where('userId', '==', auth.currentUser.uid)

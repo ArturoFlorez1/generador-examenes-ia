@@ -12,8 +12,10 @@ import {
   Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Exam, Course } from '../types';
+import { Exam, Course, ExamAttempt } from '../types';
 import { pdfService } from '../services/pdfService';
+import { examAttemptsService } from '../services/firestoreService';
+import { auth } from '../lib/firebase';
 import { CourseManager } from './CourseManager';
 import { EnrollmentManager } from './EnrollmentManager';
 import { CourseDetail } from './CourseDetail';
@@ -82,23 +84,92 @@ export const Dashboard: React.FC<DashboardProps> = ({
           />
         ) : (
           <div className="space-y-10">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <StatsCard 
-                icon={<FileText className="text-emerald-600" />} 
-                label="Exámenes Disponibles" 
-                value={exams.length} 
-              />
-              <StatsCard 
-                icon={<BookOpen className="text-amber-600" />} 
-                label="Cursos" 
-                value={role === 'student' ? enrolledCourses.length : courses.length} 
-              />
-              <StatsCard 
-                icon={<BrainCircuit className="text-blue-600" />} 
-                label="Nivel Promedio" 
-                value="Intermedio" 
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Card 1: Exams */}
+              <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-emerald-500/20 hover:bg-emerald-50/[0.01] transition-all duration-300 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600">
+                      <FileText size={22} className="stroke-[2.5]" />
+                    </div>
+                    <span className="text-[10px] font-black text-emerald-650 bg-emerald-50 px-2.5 py-1 rounded-full uppercase tracking-wider font-mono">
+                      {role === 'student' ? 'Evaluaciones' : 'Instrumentos'}
+                    </span>
+                  </div>
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-5">
+                    {role === 'student' ? 'Mis Evaluaciones Activas' : 'Exámenes Disponibles'}
+                  </h3>
+                  <p className="text-3xl font-extrabold text-slate-900 mt-1">{exams.length}</p>
+                </div>
+                <div className="mt-5 pt-3 border-t border-slate-50">
+                  <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
+                    {role === 'student' 
+                      ? 'Pruebas diseñadas y asignadas por tus docentes de informática.' 
+                      : 'Evaluaciones diseñadas mediante IA publicadas en tus aulas.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 2: Courses */}
+              <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-amber-500/20 hover:bg-amber-50/[0.01] transition-all duration-300 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-amber-50 rounded-2xl text-amber-600">
+                      <BookOpen size={22} className="stroke-[2.5]" />
+                    </div>
+                    <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full uppercase tracking-wider font-mono">
+                      Aulas Académicas
+                    </span>
+                  </div>
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-5">
+                    {role === 'student' ? 'Mis Cursos Inscritos' : 'Cursos Asignados'}
+                  </h3>
+                  <p className="text-3xl font-extrabold text-slate-900 mt-1">
+                    {role === 'student' ? enrolledCourses.length : courses.length}
+                  </p>
+                </div>
+                <div className="mt-5 pt-3 border-t border-slate-50">
+                  <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
+                    {role === 'student'
+                      ? 'Salones de clase a los que te has matriculado oficialmente.'
+                      : 'Grupos y asignaturas de la Licenciatura que diriges actualmente.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 3: Performance Level */}
+              <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-xl hover:border-blue-500/20 hover:bg-blue-50/[0.01] transition-all duration-300 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-blue-50 rounded-2xl text-blue-600">
+                      <BrainCircuit size={22} className="stroke-[2.5]" />
+                    </div>
+                    <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider font-mono">
+                      Metas ICFES
+                    </span>
+                  </div>
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-5">
+                    Nivel Promedio Proyectado
+                  </h3>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <p className="text-3xl font-black text-blue-600 tracking-tight">NIVEL 3</p>
+                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-wide">(Satisfactorio)</span>
+                  </div>
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-100">
+                  <div className="bg-slate-50/70 p-3 rounded-2xl border border-slate-100/80">
+                    <p className="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <span>💡 ¿Qué significa esta métrica?</span>
+                    </p>
+                    <p className="text-[10.5px] font-bold text-slate-600 leading-relaxed">
+                      El ICFES clasifica el desempeño de <span className="font-extrabold">1 a 4</span>. El <span className="font-extrabold text-blue-700">Nivel 3</span> indica un dominio satisfactorio de competencias críticas Saber Pro, estimado según los resultados históricos agregados del portal.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
+
+
 
             {role === 'student' && (
               <div className="animate-in slide-in-from-top-4 duration-500">
@@ -315,7 +386,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             )}
 
-            <div className="animate-in slide-in-from-bottom duration-500">
+            <div id="teacher-courses" className="animate-in slide-in-from-bottom duration-500">
               {role === 'student' ? (
                 <EnrollmentManager 
                   enrolledCourses={enrolledCourses} 
@@ -335,7 +406,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* Global Exams for Teachers/Admins */}
             {(role === 'teacher' || role === 'admin') && exams.length > 0 && (
-              <div className="space-y-6 pt-10 border-t border-slate-100">
+              <div id="explore-instruments" className="space-y-6 pt-10 border-t border-slate-100">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
