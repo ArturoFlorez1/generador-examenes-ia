@@ -13,7 +13,8 @@ import {
   BrainCircuit,
   Loader2,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, serverTimestamp, getDoc, doc } from 'firebase/firestore';
@@ -21,7 +22,7 @@ import { db, auth } from '../lib/firebase';
 import { useAuth } from '../lib/AuthContext';
 import { Exam } from '../types';
 import { examAttemptsService } from '../services/firestoreService';
-import { UNI_LOGO_URL } from '../constants';
+import { pdfService } from '../services/pdfService';
 
 import { SaberProQuestionGuide } from './SaberProQuestionGuide';
 
@@ -73,6 +74,11 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
  
   const q = exam.questions[currentIdx];
   const isLast = currentIdx === exam.questions.length - 1;
+
+  const handleDownloadResult = async () => {
+    const studentName = profile?.fullName || auth.currentUser?.displayName || auth.currentUser?.email || 'Estudiante';
+    await pdfService.generateResultPdf(exam, { score, percentageScore: (score / 5) * 100, answers }, studentName);
+  };
 
   const handleSelect = (option: string) => {
     setAnswers(prev => ({ ...prev, [q.id]: option }));
@@ -189,12 +195,21 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
             </div>
           </div>
 
-          <button 
-            onClick={onClose}
-            className="btn-primary w-full py-4 text-lg"
-          >
-            Volver al Menú
-          </button>
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={onClose}
+              className="btn-primary w-full py-4 text-lg"
+            >
+              Volver al Menú
+            </button>
+            <button 
+              onClick={handleDownloadResult}
+              className="flex items-center justify-center gap-2 w-full py-2 text-slate-500 hover:text-brand-primary font-bold transition-all text-xs uppercase tracking-widest"
+            >
+              <FileText size={16} />
+              Descargar mi Reporte (PDF)
+            </button>
+          </div>
         </div>
 
         {mode === 'teacher' && (

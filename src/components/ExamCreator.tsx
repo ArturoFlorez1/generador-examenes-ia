@@ -8,10 +8,18 @@ import {
   BrainCircuit,
   FileSearch,
   Plus,
-  Target
+  Target,
+  Upload,
+  Trash2,
+  FileText,
+  HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ExamParams, QuestionType, QuestionDistribution, Course } from '../types';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configurar worker de PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface ExamCreatorProps {
   onBack: () => void;
@@ -50,6 +58,9 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
     selectedCompetencies: [],
     competencyDistribution: {},
     isSaberPro: false,
+    pdfText: '',
+    pdfFileName: '',
+    pdfUseMode: 'context',
     distribution: {
       multiple_choice: 0,
       open_question: 0,
@@ -70,6 +81,8 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
   });
 
   const [showSaberPro, setShowSaberPro] = useState(false);
+  const [isParsingPdf, setIsParsingPdf] = useState(false);
+  const [pdfFileInfo, setPdfFileInfo] = useState<{ name: string; wordCount: number } | null>(null);
   const isSaberPro = !!params.isSaberPro;
 
   // Auto-rebalance distributions when numQuestions decreases
@@ -122,6 +135,62 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
         return prev;
     });
   }, [params.numQuestions]);
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      alert('Por ahora solo soportamos archivos PDF.');
+      return;
+    }
+
+    setIsParsingPdf(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+
+      const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+      
+      setParams(prev => ({
+        ...prev,
+        pdfText: fullText,
+        pdfFileName: file.name
+      }));
+      setPdfFileInfo({ name: file.name, wordCount });
+
+      if (!params.topic) {
+        const suggestedTopic = file.name.replace(/\.pdf$/i, '').replace(/[_-]/g, ' ');
+        setParams(prev => ({
+          ...prev,
+          topic: suggestedTopic
+        }));
+      }
+
+    } catch (error) {
+      console.error('Error parsing PDF:', error);
+      alert('No se pudo leer el PDF. Asegúrate de que no esté protegido o vacío.');
+    } finally {
+      setIsParsingPdf(false);
+    }
+  };
+
+  const clearPdf = () => {
+    setParams(prev => ({
+      ...prev,
+      pdfText: undefined,
+      pdfFileName: undefined
+    }));
+    setPdfFileInfo(null);
+  };
 
   const handleCourseChange = (courseId: string) => {
     const selectedCourse = courses.find(c => c.id === courseId);
@@ -346,6 +415,114 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
                     onChange={e => setParams({...params, topic: e.target.value})}
                   />
                 </div>
+              </div>
+
+              {/* Sección de Carga de PDF de Soporte */}
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase flex items-center gap-1.5">
+                    <FileText size={12} /> Documento PDF de Soporte (Opcional)
+                  </label>
+                  {pdfFileInfo && (
+                    <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold uppercase border border-emerald-100">
+                      Cargado
+                    </span>
+                  )}
+                </div>
+
+                {!pdfFileInfo && !isParsingPdf ? (
+                  <label 
+                    htmlFor="pdf-upload-creator" 
+                    className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 hover:border-brand-primary rounded-2xl cursor-pointer bg-slate-50/50 hover:bg-slate-50 transition-all group"
+                  >
+                    <Upload className="text-slate-400 group-hover:text-brand-primary group-hover:scale-110 transition-all mb-2" size={24} />
+                    <p className="text-xs font-bold text-slate-700">Subir Archivo PDF</p>
+                    <p className="text-[10px] text-slate-400 font-medium mt-1">Sube lecturas, guías o exámenes para basar las preguntas en ellos</p>
+                    <input 
+                      id="pdf-upload-creator" 
+                      type="file" 
+                      accept=".pdf" 
+                      className="hidden" 
+                      onChange={handlePdfUpload}
+                    />
+                  </label>
+                ) : isParsingPdf ? (
+                  <div className="p-6 border border-slate-200 rounded-2xl bg-slate-50 flex flex-col items-center justify-center text-center animate-pulse">
+                    <Loader2 className="animate-spin text-brand-primary mb-2" size={24} />
+                    <p className="text-xs font-bold text-slate-800">Procesando y extrayendo texto del PDF...</p>
+                    <p className="text-[9px] text-slate-500 font-medium mt-1">Analizando contenido para alimentar a la Inteligencia Artificial</p>
+                  </div>
+                ) : (
+                  <div className="p-4 border border-emerald-100 rounded-2xl bg-emerald-50/10 space-y-4 animate-in zoom-in duration-300">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2.5 bg-emerald-100/50 rounded-xl text-emerald-700 shrink-0">
+                          <FileText size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{pdfFileInfo?.name}</p>
+                          <p className="text-[10px] text-slate-500 font-medium mt-0.5">Contenido extraído (~{pdfFileInfo?.wordCount} palabras)</p>
+                        </div>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={clearPdf}
+                        className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition-all border border-transparent hover:border-rose-100 shrink-0"
+                        title="Eliminar PDF"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+
+                    <div className="space-y-2.5 pt-3 border-t border-emerald-100/50">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-0.5">¿Cómo debe la IA interpretar este PDF?</p>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                          params.pdfUseMode === 'context' 
+                            ? 'bg-white border-brand-primary shadow-sm text-brand-primary' 
+                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}>
+                          <input 
+                            type="radio" 
+                            name="pdfUseMode" 
+                            value="context" 
+                            checked={params.pdfUseMode === 'context'} 
+                            onChange={() => setParams(prev => ({ ...prev, pdfUseMode: 'context' }))}
+                            className="mt-0.5 accent-brand-primary"
+                          />
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-tight">Efecto Contexto</p>
+                            <p className="text-[9px] font-medium text-slate-500 mt-0.5 leading-tight">
+                              Usa el PDF como referencia teórica para elaborar preguntas nuevas y originales.
+                            </p>
+                          </div>
+                        </label>
+
+                        <label className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                          params.pdfUseMode === 'direct' 
+                            ? 'bg-white border-brand-primary shadow-sm text-brand-primary' 
+                            : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}>
+                          <input 
+                            type="radio" 
+                            name="pdfUseMode" 
+                            value="direct" 
+                            checked={params.pdfUseMode === 'direct'} 
+                            onChange={() => setParams(prev => ({ ...prev, pdfUseMode: 'direct' }))}
+                            className="mt-0.5 accent-brand-primary"
+                          />
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-tight">Extracción Directa</p>
+                            <p className="text-[9px] font-medium text-slate-500 mt-0.5 leading-tight">
+                              Adapta y recrea las preguntas y enunciados explícitos del propio documento.
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {isSaberPro && (

@@ -161,7 +161,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ conversationId, onDelete
             return (
                 <div key={msg.id} className={`flex flex-col group ${isMyMessage ? 'items-end' : 'items-start'}`}>
                     <div className="flex items-end gap-2 max-w-[85%]">
-                        {!isMyMessage && <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 mb-1 shrink-0"><Bot size={12} /></div>}
+                        {!isMyMessage && (
+                            <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-400 mb-1 shrink-0">
+                                <Bot size={12} />
+                            </div>
+                        )}
                         <div className={`relative p-3 rounded-2xl text-sm shadow-sm transition-all ${isMyMessage ? 'bg-slate-900 text-white rounded-br-none' : 'bg-white text-slate-900 border border-slate-100 rounded-bl-none'}`}>
                             <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                             

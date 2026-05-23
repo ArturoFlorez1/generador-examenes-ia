@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Question, Exam } from '../types';
-import { UNI_LOGO_URL } from '../constants';
 import { reformulateQuestion } from '../services/geminiService';
 import { SaberProQuestionGuide } from './SaberProQuestionGuide';
 
@@ -100,12 +99,6 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
             <ArrowLeft size={24} />
           </button>
           
-          <img 
-            src={UNI_LOGO_URL} 
-            alt="UniCordoba Logo" 
-            className="h-14 w-auto object-contain hidden sm:block"
-            onError={(e) => (e.currentTarget.style.display = 'none')}
-          />
 
             <div>
               <div className="flex items-center gap-2 mb-1">

@@ -66,6 +66,7 @@ export interface Course {
   description: string;
   code: string; // Unique code for enrollment
   creatorId: string;
+  creatorName?: string;
   createdAt: number;
 }
 
@@ -175,4 +176,7 @@ export interface ExamParams {
   competencyDistribution?: CompetencyDistribution;
   isSaberPro?: boolean;
   maxAttempts: number;
+  pdfText?: string;
+  pdfFileName?: string;
+  pdfUseMode?: 'context' | 'direct';
 }

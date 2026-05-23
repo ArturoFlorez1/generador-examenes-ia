@@ -3,6 +3,7 @@ import {
   query, 
   where, 
   getDocs, 
+  getDoc,
   addDoc, 
   updateDoc, 
   deleteDoc, 
@@ -138,38 +139,6 @@ export const examsService = {
     }
   },
 
-  subscribeToUserExams(userId: string, callback: (exams: Exam[]) => void) {
-    const path = 'exams';
-    if (!userId) {
-      callback([]);
-      return () => {};
-    }
-    const q = query(collection(db, path), where('creatorId', '==', userId));
-    return onSnapshot(
-      q,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        try {
-          const exams = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-              ...data,
-              id: doc.id,
-              createdAt: data.createdAt?.toMillis() || Date.now()
-            } as Exam;
-          });
-          callback(exams);
-        } catch (err) {
-          console.error("Error processing exams snapshot:", err);
-          callback([]);
-        }
-      },
-      (error) => {
-        handleFirestoreError(error, OperationType.GET, path);
-        callback([]);
-      }
-    );
-  },
-
   subscribeToEnrolledExams(courseIds: string[], callback: (exams: Exam[]) => void) {
     const path = 'exams';
     if (!auth.currentUser) {
@@ -266,7 +235,7 @@ export const examsService = {
 };
 
 export const coursesService = {
-  async create(name: string, description: string): Promise<string> {
+  async create(name: string, description: string, creatorName?: string): Promise<string> {
     const path = 'courses';
     try {
       const id = crypto.randomUUID();
@@ -277,6 +246,7 @@ export const coursesService = {
         description,
         code,
         creatorId: auth.currentUser?.uid,
+        creatorName: creatorName || '',
         createdAt: serverTimestamp()
       };
       await setDoc(doc(db, path, id), courseData);
@@ -412,6 +382,29 @@ export const coursesService = {
           } as Course);
         });
       }
+
+      // Dynamically resolve creatorName from the user document if missing or default placeholder
+      for (let i = 0; i < courses.length; i++) {
+        const course = courses[i];
+        if ((!course.creatorName || course.creatorName === 'Docente') && course.creatorId) {
+          try {
+            const userDoc = await usersService.getUser(course.creatorId);
+            if (userDoc) {
+              const creatorName = userDoc.fullName || userDoc.displayName || userDoc.email?.split('@')[0] || 'Docente Colectivo';
+              course.creatorName = creatorName;
+              
+              // Silently try to update Firestore (will fail safely for students without update permission)
+              updateDoc(doc(db, 'courses', course.id), {
+                creatorName: creatorName
+              }).catch(() => {
+                // Ignore permission error if we are a student, we updated it locally
+              });
+            }
+          } catch (e) {
+            console.warn("Could not load or update creatorName for course on-the-fly:", course.id, e);
+          }
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, path);
     }
@@ -449,6 +442,17 @@ export const coursesService = {
       handleFirestoreError(error, OperationType.GET, path);
       return [];
     }
+  },
+
+  async updateCreatorName(courseId: string, name: string): Promise<void> {
+    const path = `courses/${courseId}`;
+    try {
+      await updateDoc(doc(db, 'courses', courseId), {
+        creatorName: name
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
   }
 };
 
@@ -465,6 +469,21 @@ export const usersService = {
         callback([]);
       }
     );
+  },
+
+  async getUser(uid: string): Promise<any | null> {
+    const path = `users/${uid}`;
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (snap.exists()) {
+        const data = snap.data();
+        return { ...data, uid: snap.id };
+      }
+      return null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path);
+      return null;
+    }
   },
 
   async updateProfile(uid: string, data: any): Promise<void> {

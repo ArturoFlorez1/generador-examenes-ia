@@ -282,8 +282,8 @@ export const FloatingContact: React.FC = () => {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={isOpen ? handleClose : handleOpen}
-        className={`w-16 h-16 rounded-[28px] shadow-2xl flex items-center justify-center transition-all duration-500 relative ${
-          isOpen ? 'bg-slate-900 text-white' : 'bg-brand-primary text-white shadow-brand-primary/20 hover:shadow-brand-primary/40'
+        className={`h-14 rounded-[24px] shadow-2xl flex items-center justify-center gap-2.5 transition-all duration-500 relative ${
+          isOpen ? 'w-14 bg-slate-900 text-white' : 'px-6 bg-brand-primary text-white shadow-brand-primary/20 hover:shadow-brand-primary/40'
         }`}
       >
         <AnimatePresence mode="wait">
@@ -294,7 +294,7 @@ export const FloatingContact: React.FC = () => {
               animate={{ rotate: 0, opacity: 1 }}
               exit={{ rotate: 90, opacity: 0 }}
             >
-              <X size={28} />
+              <X size={24} />
             </motion.div>
           ) : (
             <motion.div
@@ -302,8 +302,10 @@ export const FloatingContact: React.FC = () => {
               initial={{ rotate: 90, opacity: 0 }}
               animate={{ rotate: 0, opacity: 1 }}
               exit={{ rotate: -90, opacity: 0 }}
+              className="flex items-center gap-2"
             >
-              <MessageCircle size={28} />
+              <MessageCircle size={20} />
+              <span className="text-xs font-black uppercase tracking-[0.15em]">Contacto</span>
             </motion.div>
           )}
         </AnimatePresence>

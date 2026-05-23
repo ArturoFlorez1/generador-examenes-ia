@@ -136,6 +136,9 @@ export const EnrollmentManager: React.FC<EnrollmentManagerProps> = ({ enrolledCo
               </div>
               <div>
                 <h4 className="font-black text-slate-900 text-xl leading-tight uppercase tracking-tight">{course.name}</h4>
+                <p className="text-xs font-bold text-brand-primary uppercase tracking-wider mt-1 block">
+                  Docente: {course.creatorName && course.creatorName !== 'Docente' ? course.creatorName : 'Docente de la Materia'}
+                </p>
                 <p className="text-slate-400 text-sm font-medium mt-1 line-clamp-2">{course.description}</p>
               </div>
               <div className="flex items-center gap-4 pt-4 border-t border-slate-50">

@@ -13,8 +13,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Exam, Course } from '../types';
-import { jsPDF } from 'jspdf';
-import { UNI_LOGO_URL } from '../constants';
+import { pdfService } from '../services/pdfService';
 import { CourseManager } from './CourseManager';
 import { EnrollmentManager } from './EnrollmentManager';
 import { CourseDetail } from './CourseDetail';
@@ -46,223 +45,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [selectedCourseId, setSelectedCourseId] = React.useState<string | null>(null);
   const [showSaberProGuide, setShowSaberProGuide] = React.useState(false);
+  const [activeGuideTab, setActiveGuideTab] = React.useState<'steps' | 'levels' | 'traps'>('steps');
 
   const selectedCourse = React.useMemo(() => {
     return [...courses, ...enrolledCourses].find(c => c.id === selectedCourseId);
   }, [selectedCourseId, courses, enrolledCourses]);
 
   const downloadExam = async (exam: Exam, includeAnswers = false) => {
-    const doc = new jsPDF();
-    const margin = 20;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let y = 15;
-
-    // Función auxiliar para cargar imagen y evitar errores de CORS/Firma
-    const loadImage = (url: string): Promise<string | null> => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(img, 0, 0);
-            try {
-              resolve(canvas.toDataURL("image/jpeg", 0.9));
-            } catch (e) {
-              resolve(null);
-            }
-          } else {
-            resolve(null);
-          }
-        };
-        img.onerror = () => resolve(null);
-        img.src = url;
-      });
-    };
-
-    const logoBase64 = await loadImage(UNI_LOGO_URL);
-
-    if (logoBase64) {
-      doc.addImage(logoBase64, "JPEG", margin, y, 40, 15, undefined, 'FAST');
-    } else {
-      // Encabezado alternativo si el logo falla
-      doc.setFillColor(0, 132, 61);
-      doc.roundedRect(margin, y, 12, 12, 2, 2, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(255, 255, 255);
-      doc.text("UC", margin + 3, y + 8);
-    }
-    
-    y += 22;
-
-    // Encabezado Formal
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(0, 132, 61); // Verde Institucional (#00843D)
-    doc.text("UNIVERSIDAD DE CÓRDOBA", margin, y);
-    
-    y += 6;
-    doc.setFontSize(9);
-    doc.setTextColor(100);
-    doc.text("FACULTAD DE EDUCACIÓN Y CIENCIAS HUMANAS", margin, y);
-    
-    y += 12;
-    doc.setFontSize(16);
-    doc.setTextColor(30, 41, 59);
-    doc.text(exam.title.toUpperCase(), margin, y);
-    
-    y += 8;
-    
-    // Cuadro de Información del Examen
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(margin, y, pageWidth - (margin * 2), 28, 3, 3, "FD");
-    
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(100);
-    doc.text("CURSO:", margin + 5, y + 8);
-    doc.text("TEMA:", margin + 5, y + 16);
-    doc.text("SEMESTRE:", margin + 5, y + 24);
-    
-    if (exam.showTeacherInPdf !== false) {
-      doc.text("DOCENTE:", (pageWidth / 2) + 5, y + 8);
-    }
-    doc.text("DIFICULTAD:", (pageWidth / 2) + 5, y + 16);
-    doc.text("FECHA:", (pageWidth / 2) + 5, y + 24);
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(51, 65, 85);
-    
-    // Truncar o ajustar texto largo en metadatos para evitar superposición de columnas
-    const maxMetaWidth = (pageWidth / 2) - margin - 30;
-    
-    const courseTxt = doc.splitTextToSize(exam.course.toUpperCase(), maxMetaWidth);
-    doc.text(courseTxt, margin + 25, y + 8);
-    
-    const topicTxt = doc.splitTextToSize(exam.topic.toUpperCase(), maxMetaWidth);
-    doc.text(topicTxt, margin + 25, y + 16);
-    
-    const semesterTxt = doc.splitTextToSize(exam.semester.toUpperCase(), maxMetaWidth);
-    doc.text(semesterTxt, margin + 25, y + 24);
-    
-    if (exam.showTeacherInPdf !== false) {
-      const teacherDisplay = (exam.teacherName || "DOCENTE ASIGNADO").toUpperCase();
-      doc.text(teacherDisplay, (pageWidth / 2) + 30, y + 8);
-    }
-    
-    doc.text(exam.difficulty.toUpperCase(), (pageWidth / 2) + 30, y + 16);
-    doc.text(new Date(exam.createdAt).toLocaleDateString(), (pageWidth / 2) + 30, y + 24);
-
-    y += 42;
-
-    if (!includeAnswers) {
-      // Espacio para identificación del estudiante
-      doc.setDrawColor(200);
-      doc.setFont("helvetica", "bold");
-      doc.text("NOMBRE COMPLETO: __________________________________________________", margin, y);
-      y += 8;
-      doc.text("CÓDIGO / ID: ________________________", margin, y);
-      y += 15;
-      
-      doc.setDrawColor(241, 245, 249);
-      doc.line(margin, y, pageWidth - margin, y);
-      y += 12;
-    } else {
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(220, 38, 38);
-      doc.text("HOJA DE RESPUESTAS Y JUSTIFICACIONES (SOLO PARA USO DOCENTE)", margin, y);
-      y += 15;
-    }
-
-    // Preguntas
-    exam.questions.forEach((q, i) => {
-      if (y > 250) {
-        doc.addPage();
-        y = 20;
-      }
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(30, 41, 59);
-      
-      const promptText = `${i + 1}. ${q.prompt}`;
-      const promptLines = doc.splitTextToSize(promptText, pageWidth - (margin * 2));
-      doc.text(promptLines, margin, y);
-      
-      y += (promptLines.length * 5) + 5;
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(71, 85, 105);
-
-      if (q.options && q.options.length > 0) {
-        q.options.forEach((opt, optIndex) => {
-          if (y > 275) {
-            doc.addPage();
-            y = 20;
-          }
-          const char = String.fromCharCode(65 + optIndex);
-          const optionText = `${char}) ${opt}`;
-          const isCorrect = includeAnswers && (String(q.correctAnswer).toLowerCase() === opt.toLowerCase() || String(q.correctAnswer).includes(opt));
-          
-          if (isCorrect) {
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(0, 132, 61);
-          } else {
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(71, 85, 105);
-          }
-
-          const optLines = doc.splitTextToSize(optionText, pageWidth - (margin * 2) - 10);
-          doc.text(optLines, margin + 10, y);
-          
-          if (isCorrect) {
-            doc.setFontSize(7);
-            doc.text(" [CORRECTA]", margin + 10 + doc.getTextWidth(optLines[optLines.length - 1]) + 2, y + ((optLines.length - 1) * 5));
-            doc.setFontSize(10);
-          }
-
-          y += (optLines.length * 5) + 2;
-        });
-
-        if (includeAnswers && q.justification) {
-          y += 3;
-          doc.setFont("helvetica", "italic");
-          doc.setFontSize(8);
-          doc.setTextColor(100);
-          const justifText = `Justificación: ${q.justification}`;
-          const justifLines = doc.splitTextToSize(justifText, pageWidth - (margin * 2) - 15);
-          doc.text(justifLines, margin + 10, y);
-          y += (justifLines.length * 4) + 5;
-        }
-      } else {
-        // Espacio para respuesta escrita
-        doc.setDrawColor(241, 245, 249);
-        doc.line(margin + 5, y + 5, pageWidth - margin, y + 5);
-        y += 8;
-        doc.line(margin + 5, y + 5, pageWidth - margin, y + 5);
-        y += 12;
-      }
-
-      y += 8;
-    });
-
-    // Pie de página
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(7);
-        doc.setTextColor(148, 163, 184);
-        doc.text(`Página ${i} de ${pageCount} | Generado por EvaluAI UniCordoba - Calidad Educativa en la Era Digital`, pageWidth / 2, 285, { align: "center" });
-    }
-
-    const fileName = `${includeAnswers ? 'Clave_' : 'Examen_'}${exam.topic.replace(/\s+/g, '_')}.pdf`;
-    doc.save(fileName);
+    await pdfService.generateExamPdf(exam, includeAnswers);
   };
 
   return (
@@ -344,58 +134,178 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       exit={{ opacity: 0, height: 0, marginTop: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="card p-8 bg-gradient-to-br from-amber-50 to-white border-amber-100 shadow-2xl shadow-amber-500/5 space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                          {[
-                            {
-                              step: "01",
-                              title: "Lectura Crítica del Contexto",
-                              desc: "Lee el enunciado detalladamente. En Saber Pro, la respuesta no depende solo de lo que sabes, sino de lo que el texto afirma explícitamente."
-                            },
-                            {
-                              step: "02",
-                              title: "Identifica la Competencia",
-                              desc: "Define si te piden INTERPRETAR (entender), ARGUMENTAR (validar razones) o PROPONER (solucionar problemas)."
-                            },
-                            {
-                              step: "03",
-                              title: "Elimina los Distractores",
-                              desc: "Descarta opciones que generalizan demasiado o aquellas que son verdaderas en la realidad pero no se mencionan en el texto."
-                            },
-                            {
-                              step: "04",
-                              title: "Selección de Precisión",
-                              desc: "Cuando dos opciones parezcan correctas, elige la que sea más completa y responda directamente a la pregunta formulada."
-                            }
-                          ].map((item, i) => (
-                            <div key={i} className="space-y-3 relative group">
-                              <span className="text-5xl font-black text-amber-200/50 absolute -top-4 -left-2 select-none group-hover:text-amber-300/50 transition-colors">
-                                {item.step}
-                              </span>
-                              <div className="relative z-10 pt-4">
-                                <h4 className="text-xs font-black text-amber-700 uppercase tracking-tight mb-2">
+                      <div className="card p-8 bg-gradient-to-br from-indigo-50/40 via-amber-50/10 to-white border-amber-200/60 shadow-2xl space-y-6">
+                        {/* Selector de sub-vistas */}
+                        <div className="flex border-b border-slate-200/80 pb-1 overflow-x-auto gap-2">
+                          <button
+                            onClick={() => setActiveGuideTab('steps')}
+                            className={`px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all shrink-0 ${
+                              activeGuideTab === 'steps'
+                                ? 'border-amber-500 text-amber-700'
+                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                          >
+                            ⭐ Método de las 4 Fases
+                          </button>
+                          <button
+                            onClick={() => setActiveGuideTab('levels')}
+                            className={`px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all shrink-0 ${
+                              activeGuideTab === 'levels'
+                                ? 'border-amber-500 text-amber-700'
+                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                          >
+                            📊 Niveles de Desempeño
+                          </button>
+                          <button
+                            onClick={() => setActiveGuideTab('traps')}
+                            className={`px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all shrink-0 ${
+                              activeGuideTab === 'traps'
+                                ? 'border-amber-500 text-amber-700'
+                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                          >
+                            🚨 Trampas del Diseñador
+                          </button>
+                        </div>
+
+                        {/* Contenidos de acuerdo al Tab activo */}
+                        {activeGuideTab === 'steps' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {[
+                              {
+                                step: "01",
+                                title: "Mapea el Contexto Técnico",
+                                desc: "No te apresures. Lee despacio el caso técnico o la línea de código provista. Subraya mentalmente el problema de fondo, sus restricciones y los actores involucrados."
+                              },
+                              {
+                                step: "02",
+                                title: "Filtra la Intención Crítica",
+                                desc: "¿Qué competencia te pide el ítem? Identifícala claramente: si te pide justificar decisiones, diseñar una solución sostenible o reconocer datos literales."
+                              },
+                              {
+                                step: "03",
+                                title: "Aniquilación por Descarte",
+                                desc: "No busques de inmediato la correcta. Descarta primero las respuestas contradictorias, las que aplican malas prácticas o las que requieren recursos fuera de margen."
+                              },
+                              {
+                                step: "04",
+                                title: "Coherencia de Especificidad",
+                                desc: "Si dudas entre dos opciones válidas, relee minuciosamente: una de ellas responderá de forma integral la meta última, la otra será verdadera pero inconexa."
+                              }
+                            ].map((item, i) => (
+                              <div key={i} className="space-y-2 relative group bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                                <span className="text-4xl font-black text-amber-500/20 absolute top-2 right-4 select-none">
+                                  {item.step}
+                                </span>
+                                <h4 className="text-xs font-black text-amber-800 uppercase tracking-tight pr-8">
                                   {item.title}
                                 </h4>
-                                <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                                <p className="text-[11px] text-slate-600 leading-relaxed font-semibold">
                                   {item.desc}
                                 </p>
                               </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )}
 
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-amber-100/30 rounded-2xl border border-amber-100/50">
+                        {activeGuideTab === 'levels' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[
+                              {
+                                level: "Nivel Interpretativo (Dificultad Baja)",
+                                target: "Comprensión semántica y literal directa.",
+                                guide: "La respuesta está contenida o se deriva de forma estricta y directa de los datos o fragmentos provistos en el escenario, sin dar lugar a segundas lecturas.",
+                                risk: "No agregues suposiciones ni saques conclusiones apresuradas que no estén escritas."
+                              },
+                              {
+                                level: "Nivel Argumentativo (Dificultad Media)",
+                                target: "Análisis causal, justificación y validez.",
+                                guide: "Aquí debes justificar racionalmente decisiones técnicas o metodológicas. Requiere validar el por qué un argumento es lógicamente superior al resto.",
+                                risk: "Cuidado con las falacias circulares que repiten el problema sin aportar argumentos de valor."
+                              },
+                              {
+                                level: "Nivel Propositivo (Dificultad Alta)",
+                                target: "Planteamiento de alternativas viables.",
+                                guide: "Abordas el diseño de sistemas de información o dilemas docentes con restricciones del mundo real. Elige optimizar según el margen propuesto.",
+                                risk: "Desconecta las nociones ideales y elige la solución práctica y sostenible que mitiga el riesgo de raíz."
+                              },
+                              {
+                                level: "Nivel Integral (Dificultad Compleja)",
+                                target: "Hibridación ética, legal y técnica.",
+                                guide: "Se examina la capacidad de actuar éticamente como docente u profesional TI, considerando regulaciones y el impacto social del software.",
+                                risk: "Evita soluciones egoístas, que vulneren accesibilidad o que violen normativas estándar."
+                              }
+                            ].map((item, i) => (
+                              <div key={i} className="bg-white border border-slate-100 p-5 rounded-2xl shadow-sm space-y-2">
+                                <span className="text-[9px] bg-amber-100 text-amber-800 rounded-full px-2.5 py-0.5 font-bold uppercase font-mono">
+                                  {item.level}
+                                </span>
+                                <h4 className="text-xs font-black text-slate-800 mt-1">Foco: {item.target}</h4>
+                                <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                                  {item.guide}
+                                </p>
+                                <div className="border-t border-slate-50 pt-2 text-[10px] text-amber-700 italic font-semibold">
+                                  💡 Estrategia: {item.risk}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {activeGuideTab === 'traps' && (
+                          <div className="space-y-4">
+                            <p className="text-xs text-slate-500 font-medium italic">
+                              Reconocer los patrones de distracción en el diseño de preguntas de exámenes estatales es el 50% del éxito. Conoce las trampas de diseño más frecuentes:
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              {[
+                                {
+                                  trapName: "La Verdad Ajena / Hecho Plausible",
+                                  description: "Una de las opciones te ofrece una afirmación teórica impecable y verídica en ciencias computacionales, pero completamente deslindada de las necesidades del caso planteado.",
+                                  antidote: "Pregúntate siempre: ¿Esta solución responde explícitamente a la problemática del enunciado, o solo expresa algo verdadero a nivel general?"
+                                },
+                                {
+                                  trapName: "La Solución Idealizada / Utópica",
+                                  description: "Se te sugiere la mejor arquitectura mágica o didáctica jamás creada, pero que viola flagrantemente el presupuesto restringido o las competencias del personal dadas en el texto.",
+                                  antidote: "Elige siempre la opción viable y contextualizada sobre la utopía inalcanzable."
+                                },
+                                {
+                                  trapName: "La Exclusión Absoluta",
+                                  description: "Afirmaciones categóricas estructuradas alrededor de términos de control irrestrictos como siempre, nunca o únicamente.",
+                                  antidote: "Sospecha de la rigidez. En informática y pedagogía, las respuestas completas contemplan matices adaptativos."
+                                }
+                              ].map((trap, i) => (
+                                <div key={i} className="p-5 rounded-2xl border border-rose-100 bg-rose-50/20 flex flex-col justify-between">
+                                  <div>
+                                    <span className="text-[9px] bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded-full font-mono uppercase">
+                                      {trap.trapName}
+                                    </span>
+                                    <p className="text-xs text-slate-700 font-medium mt-3 leading-relaxed">
+                                      {trap.description}
+                                    </p>
+                                  </div>
+                                  <div className="border-t border-rose-100/50 mt-4 pt-2 text-[10px] text-rose-700 font-bold">
+                                    🛡️ Antídoto: {trap.antidote}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-amber-100/30 rounded-2xl border border-amber-100/50 pt-2">
                           <div className="flex items-center gap-3">
-                            <Sparkles className="text-amber-500" size={20} />
-                            <p className="text-xs font-bold text-amber-700 uppercase tracking-widest">
-                              Recuerda: Razonamiento lógico sobre memorización de datos.
+                            <Sparkles className="text-amber-500 shrink-0" size={18} />
+                            <p className="text-xs font-bold text-amber-800 uppercase tracking-tight">
+                              La excelencia no proviene de memorizar, sino de aprender a decodificar enunciados complejos.
                             </p>
                           </div>
                           <button 
                             onClick={() => setShowSaberProGuide(false)}
-                            className="px-6 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
+                            className="px-6 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 shrink-0"
                           >
-                            Entendido
+                            Entendido, ¡Listo para practicar!
                           </button>
                         </div>
                       </div>
@@ -462,7 +372,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           </h4>
                           {exam.teacherName && (
                             <p className="text-[9px] font-bold text-brand-primary uppercase tracking-widest -mt-1">
-                              Por: {exam.teacherName}
+                              Por: {exam.teacherName === 'Docente' ? 'Docente Asignado' : exam.teacherName}
                             </p>
                           )}
                           <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">

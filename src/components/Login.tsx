@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn, BrainCircuit, Mail, Lock, UserPlus, AlertCircle } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
-import { UNI_LOGO_URL } from '../constants';
 
 export const Login: React.FC = () => {
   const { login, register, loading } = useAuth();
@@ -37,9 +36,6 @@ export const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-700">
         <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <img src={UNI_LOGO_URL} alt="UniCordoba Logo" className="h-20 w-auto object-contain" />
-          </div>
           <div className="space-y-1">
             <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter">
               EvaluAI <span className="text-[#00843D]">AI</span>

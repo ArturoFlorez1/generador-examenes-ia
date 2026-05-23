@@ -74,7 +74,45 @@ export async function runAITool(toolId: string, input: any, apiKey?: string): Pr
 }
 
 export async function generateExamQuestions(params: ExamParams, apiKey?: string): Promise<Question[]> {
-  const { topic, difficulty, numQuestions, course, semester, questionTypes, distribution } = params;
+  const { 
+    topic, 
+    difficulty, 
+    numQuestions, 
+    course, 
+    semester, 
+    questionTypes, 
+    distribution,
+    pdfText,
+    pdfFileName,
+    pdfUseMode
+  } = params;
+
+  let pdfPrompt = "";
+  if (pdfText && pdfText.trim().length > 0) {
+    if (pdfUseMode === 'direct') {
+      pdfPrompt = `
+      AVISO: EL DOCENTE HA SUMINISTRADO UN DOCUMENTO PDF FUENTE (Nombre: ${pdfFileName || 'documento.pdf'}).
+      El texto extraído del PDF es el siguiente:
+      --- COMIENZO DEL CONTENIDO PDF ---
+      ${pdfText.substring(0, 16000)}
+      --- FIN DEL CONTENIDO PDF ---
+
+      INSTRUCCIÓN DE EXTRACCIÓN DIRECTA:
+      Debes formular y extraer las preguntas basándote DIRECTAMENTE en los enunciados, problemas, ejercicios, lecturas o preguntas explícitas que encuentres dentro del PDF anterior. Tu misión es estructurar, adaptar pedagógicamente y acomodar estos contenidos al formato JSON estructurado que requerimos, manteniendo correspondencia temática y literal estricta con el material provisto.
+      `;
+    } else {
+      pdfPrompt = `
+      AVISO: EL DOCENTE HA SUMINISTRADO UN DOCUMENTO PDF DE SOPORTE PEDAGÓGICO (Nombre: ${pdfFileName || 'documento.pdf'}).
+      El texto extraído del PDF es el siguiente:
+      --- COMIENZO DEL CONTENIDO PDF ---
+      ${pdfText.substring(0, 16000)}
+      --- FIN DEL CONTENIDO PDF ---
+
+      INSTRUCCIÓN DE CONTEXTO DE SOPORTE:
+      Debes utilizar la información del PDF como referencia teórica o contexto conceptual del examen. Diseña nuevas preguntas de tu autoría analizando, evaluando y aplicando las ideas, metodologías, códigos o teorías descritas en dicho material, garantizando que el examen esté directamente alineado con la lectura suministrada.
+      `;
+    }
+  }
 
   let distributionText = "";
   if (distribution) {
@@ -130,6 +168,7 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     Tu función es asistir a docentes en la creación de instrumentos de evaluación basados en evidencias de aprendizaje (Cuestionarios, Estudios de Caso, Talleres) para Programación e Informática.
     
     ${saberProModePrompt}
+    ${pdfPrompt}
 
     Lineamientos obligatorios para CADA ítem:
     1. Alinear con un resultado de aprendizaje específico del tema.

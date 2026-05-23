@@ -13,7 +13,8 @@ import {
   KeyRound,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '../lib/firebase';
@@ -211,6 +212,16 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-slate-400">
+                    <User size={14} />
+                  </div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Docente</span>
+                </div>
+                <span className="text-sm font-bold text-slate-700">{course.creatorName && course.creatorName !== 'Docente' ? course.creatorName : 'Docente Asignado'}</span>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-slate-400">
                     <Key size={14} />
                   </div>
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Código</span>
@@ -285,10 +296,14 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({
                       <div className="flex-1">
                         <h4 className="font-bold text-lg text-slate-900 group-hover:text-brand-primary transition-colors uppercase tracking-tight">{exam.title}</h4>
                         <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 mt-1 font-black uppercase tracking-widest">
-                          {exam.teacherName && (
-                            <span className="text-brand-primary">Docente: {exam.teacherName}</span>
-                          )}
-                          {exam.teacherName && <span className="w-1 h-1 bg-slate-200 rounded-full"></span>}
+                          {(() => {
+                            const rawTeacher = exam.teacherName || course.creatorName;
+                            const displayTeacher = rawTeacher && rawTeacher !== 'Docente' ? rawTeacher : 'Docente Asignado';
+                            return (
+                              <span className="text-brand-primary">Docente: {displayTeacher}</span>
+                            );
+                          })()}
+                          {(exam.teacherName || course.creatorName) && <span className="w-1 h-1 bg-slate-200 rounded-full"></span>}
                           <span className={`${
                             exam.difficulty === 'alto' ? 'text-rose-500' : 
                             exam.difficulty === 'medio' ? 'text-amber-500' : 'text-emerald-500'

@@ -25,10 +25,31 @@ import { Login } from './components/Login';
 import { FloatingContact } from './components/FloatingContact';
 import { OnboardingTutorial } from './components/Onboarding/OnboardingTutorial';
 import { generateExamQuestions } from './services/geminiService';
-import { examsService, coursesService, chatService } from './services/firestoreService';
+import { examsService, coursesService, chatService, usersService } from './services/firestoreService';
 import { useAuth } from './lib/AuthContext';
 import { Exam, ExamParams, Course } from './types';
-import { UNI_LOGO_URL } from './constants';
+
+// Helper to resolve teacher names dynamically
+async function resolveExamsTeacherNames(data: Exam[]): Promise<Exam[]> {
+  const resolved = [...data];
+  for (let i = 0; i < resolved.length; i++) {
+    const ex = resolved[i];
+    if ((!ex.teacherName || ex.teacherName === 'Docente') && ex.creatorId) {
+      try {
+        const ud = await usersService.getUser(ex.creatorId);
+        if (ud) {
+          const resolvedName = ud.fullName || ud.displayName || ud.email?.split('@')[0] || 'Docente';
+          if (resolvedName !== 'Docente') {
+            ex.teacherName = resolvedName;
+          }
+        }
+      } catch (e) {
+        console.warn("Could not dynamically resolve teacherName:", e);
+      }
+    }
+  }
+  return resolved;
+}
 
 export default function App() {
   const { user, profile, loading: authLoading, requestDocente, updateProfile, logout } = useAuth();
@@ -86,13 +107,23 @@ export default function App() {
 
     if (profile?.role === 'teacher' || profile?.role === 'admin') {
       unsubscribers.push(
-        examsService.subscribeToExams((data) => {
-          setExams(data);
+        examsService.subscribeToExams(async (data) => {
+          const resolved = await resolveExamsTeacherNames(data);
+          setExams(resolved);
         }, profile.role === 'teacher' ? user.uid : undefined)
       );
       unsubscribers.push(
         coursesService.subscribeToTeacherCourses(user.uid, (data) => {
           setCourses(data);
+          
+          // Silently backfill creatorName for courses that are missing it or have placeholder 'Docente'
+          const currentName = profile?.fullName || user?.displayName || 'Docente';
+          data.forEach(course => {
+            if ((!course.creatorName || course.creatorName === 'Docente') && course.creatorId === user.uid && currentName !== 'Docente') {
+              coursesService.updateCreatorName(course.id, currentName)
+                .catch(err => console.warn("Could not backfill course creatorName:", err));
+            }
+          });
         })
       );
     } else if (profile?.role === 'student' || !profile?.role) {
@@ -115,8 +146,9 @@ export default function App() {
               
               if (courseIds.length > 0) {
                 // Subscribe to exams for these courses
-                innerExamUnsubscribe = examsService.subscribeToEnrolledExams(courseIds, (data) => {
-                  setExams(data);
+                innerExamUnsubscribe = examsService.subscribeToEnrolledExams(courseIds, async (data) => {
+                  const resolved = await resolveExamsTeacherNames(data);
+                  setExams(resolved);
                 });
               } else {
                 setExams([]);
@@ -209,7 +241,8 @@ export default function App() {
   };
 
   const handleCreateCourse = async (name: string, description: string) => {
-    await coursesService.create(name, description);
+    const creatorName = profile?.fullName || user?.displayName || 'Docente';
+    await coursesService.create(name, description, creatorName);
   };
 
   const handleDeleteCourse = async (id: string) => {
@@ -244,16 +277,6 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
-              <div className="relative group">
-                <img 
-                  src={UNI_LOGO_URL} 
-                  alt="UniCordoba Logo" 
-                  className="h-14 w-auto object-contain transition-transform group-hover:scale-105"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-              </div>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-black text-slate-900 tracking-tighter leading-none uppercase">
                   Evalu<span className="text-[#00843D]">AI</span>

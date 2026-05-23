@@ -139,7 +139,7 @@ service cloud.firestore {
 
     // 1. Users Collection
     match /users/{userId} {
-      allow get: if isSignedIn() && (isOwner(userId) || isAdmin() || isTeacher());
+      allow get: if isSignedIn();
       allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().uid == userId;
       allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming()) 
