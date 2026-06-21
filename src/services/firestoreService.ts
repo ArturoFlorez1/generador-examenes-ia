@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   setDoc,
   orderBy,
+  limit,
   DocumentData,
   QuerySnapshot,
   arrayUnion,
@@ -714,6 +715,83 @@ export const examAttemptsService = {
             return [];
         }
     }
+};
+
+export const questionBankService = {
+  // Add a question to the bank
+  createQuestion: async (questionData: any) => {
+    try {
+      const dbRef = collection(db, 'questionBank');
+      const docRef = doc(dbRef); // Let Firestore generate an ID
+      const data = {
+        ...questionData,
+        id: docRef.id,
+        creatorId: auth.currentUser?.uid,
+        createdAt: Date.now(), // or serverTimestamp(), but we match rules `request.time`
+      };
+      // Firestore rule expects server timestamp for request.time or timestamp
+      await setDoc(docRef, { ...data, createdAt: serverTimestamp() });
+      return docRef.id;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'questionBank');
+    }
+  },
+  
+  // List approved questions for a certain topic and course
+  getApprovedQuestions: async (course?: string) => {
+    try {
+      let q;
+      if (course) {
+        // Query by course to minimize transfer
+        q = query(
+          collection(db, 'questionBank'), 
+          where('course', '==', course)
+        );
+      } else {
+        q = query(collection(db, 'questionBank'));
+      }
+      const snapshot = await getDocs(q);
+      const allQs = snapshot.docs.map(doc => doc.data() as import('../types').QuestionBankEntry);
+      return allQs.filter(q => q.status === 'approved');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'questionBank');
+      return [];
+    }
+  },
+
+  getAllQuestions: async (limitCount = 100) => {
+    try {
+      if (!auth.currentUser) return [];
+      const q = query(
+        collection(db, 'questionBank'), 
+        orderBy('createdAt', 'desc'), 
+        limit(limitCount)
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => doc.data() as import('../types').QuestionBankEntry);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'questionBank');
+      return [];
+    }
+  },
+
+  updateQuestion: async (questionId: string, updates: any) => {
+    try {
+      const docRef = doc(db, 'questionBank', questionId);
+      await updateDoc(docRef, updates);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `questionBank/${questionId}`);
+    }
+  },
+
+  deleteQuestion: async (questionId: string) => {
+    try {
+      const docRef = doc(db, 'questionBank', questionId);
+      await deleteDoc(docRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `questionBank/${questionId}`);
+    }
+  }
 };
 
 export const notificationsService = {

@@ -27,6 +27,25 @@ export interface QualityCriteria {
   pertinence: string;
 }
 
+export interface QuestionBankEntry {
+  id: string;
+  prompt: string;
+  correctAnswer: string;
+  options?: string[];
+  topic: string;
+  course: string;
+  difficulty: 'bajo' | 'medio' | 'alto' | 'integral';
+  creatorId: string;
+  createdAt: number;
+  status: 'pending' | 'approved' | 'rejected';
+  justification: string;
+  competence: string;
+  learningOutcome: string;
+  bloomLevel: string;
+  type: string;
+  inclusionGuidance?: string;
+}
+
 export interface Question {
   id: string;
   type: QuestionType;

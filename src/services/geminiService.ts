@@ -74,6 +74,18 @@ export async function runAITool(toolId: string, input: any, apiKey?: string): Pr
 }
 
 export async function generateExamQuestions(params: ExamParams, apiKey?: string): Promise<Question[]> {
+  const cacheKey = `exam_cache_${JSON.stringify({ ...params, numQuestions: params.numQuestions })}`;
+  
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      console.log("Using cached exam questions");
+      return JSON.parse(cached);
+    }
+  } catch(e) {
+    console.error("Cache read error", e);
+  }
+
   const { 
     topic, 
     difficulty, 
@@ -282,6 +294,11 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
 
   try {
     const questions = JSON.parse(response.text);
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(questions));
+    } catch(e) {
+      console.warn("Could not cache questions", e);
+    }
     return questions;
   } catch (error) {
     console.error("Error parsing Gemini response:", error);

@@ -137,6 +137,16 @@ service cloud.firestore {
         && (!('questions' in data) || (data.questions is list && data.questions.size() <= 50));
     }
 
+    function isValidQuestionBankEntry(data) {
+      return data.keys().hasAll(['id', 'prompt', 'correctAnswer', 'topic', 'course', 'difficulty', 'creatorId', 'createdAt', 'status', 'type'])
+        && data.id is string && data.id.size() <= 128
+        && data.prompt is string && data.prompt.size() <= 5000
+        && data.creatorId == request.auth.uid
+        && data.status in ['pending', 'approved', 'rejected']
+        && data.type is string && data.type.size() <= 64
+        && (!('options' in data) || (data.options is list && data.options.size() <= 20));
+    }
+
     // 1. Users Collection
     match /users/{userId} {
       allow get: if isSignedIn();
@@ -251,6 +261,18 @@ service cloud.firestore {
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn() && incoming().userId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // 8. Question Bank Collection
+    match /questionBank/{questionId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (
+        isAdmin() || isTeacher() || resource.data.status == 'approved' || resource.data.creatorId == request.auth.uid
+      );
+      allow create: if isTeacher() && isValidQuestionBankEntry(incoming()) && (incoming().createdAt == request.time || incoming().createdAt is timestamp);
+      allow update: if (isAdmin() || (isTeacher() && resource.data.creatorId == request.auth.uid)) && isValidQuestionBankEntry(incoming())
+        && incoming().creatorId == existing().get('creatorId', '');
+      allow delete: if isAdmin() || (isTeacher() && resource.data.creatorId == request.auth.uid);
     }
   }
 }

@@ -153,6 +153,30 @@
       },
       "required": ["id", "examId", "studentId", "attemptNumber", "status"]
     },
+    "QuestionBankEntry": {
+      "title": "Question Bank Entry",
+      "description": "An institutional question stored in the bank.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "prompt": { "type": "string" },
+        "correctAnswer": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "topic": { "type": "string" },
+        "course": { "type": "string" },
+        "difficulty": { "type": "string", "enum": ["bajo", "medio", "alto", "integral"] },
+        "creatorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "justification": { "type": "string" },
+        "competence": { "type": "string" },
+        "learningOutcome": { "type": "string" },
+        "bloomLevel": { "type": "string" },
+        "type": { "type": "string" },
+        "inclusionGuidance": { "type": "string" }
+      },
+      "required": ["id", "prompt", "correctAnswer", "topic", "course", "difficulty", "creatorId", "createdAt", "status", "type"]
+    },
     "Notification": {
       "title": "Notification",
       "description": "System notification for user.",
@@ -205,6 +229,10 @@
     "exam_attempts/{attemptId}": {
       "schema": "ExamAttempt",
       "description": "Student exam attempts."
+    },
+    "questionBank/{questionId}": {
+      "schema": "QuestionBankEntry",
+      "description": "Institutional question bank."
     },
     "notifications/{notificationId}": {
       "schema": "Notification",

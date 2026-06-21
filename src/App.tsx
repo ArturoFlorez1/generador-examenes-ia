@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { 
   Plus, 
   Menu, 
@@ -11,22 +11,26 @@ import {
   User
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Dashboard } from './components/Dashboard';
-import { ExamCreator } from './components/ExamCreator';
-import { QuestionReview } from './components/QuestionReview';
-import { ExamPlayer } from './components/ExamPlayer';
-import { AIResources } from './components/AIResources';
-import { AdminPanel } from './components/AdminPanel';
-import { HelpCenter } from './components/HelpCenter';
-import { PrivacyPolicy } from './components/PrivacyPolicy';
-import { AboutUs } from './components/AboutUs';
-import { UserProfile } from './components/UserProfile';
 import { Login } from './components/Login';
 import { FloatingContact } from './components/FloatingContact';
 import { ConfirmModal } from './components/ConfirmModal';
 import { OnboardingTutorial } from './components/Onboarding/OnboardingTutorial';
+
+// Lazy loaded components
+const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const ExamCreator = lazy(() => import('./components/ExamCreator').then(m => ({ default: m.ExamCreator })));
+const QuestionReview = lazy(() => import('./components/QuestionReview').then(m => ({ default: m.QuestionReview })));
+const ExamPlayer = lazy(() => import('./components/ExamPlayer').then(m => ({ default: m.ExamPlayer })));
+const AIResources = lazy(() => import('./components/AIResources').then(m => ({ default: m.AIResources })));
+const AdminPanel = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
+const QuestionBankManager = lazy(() => import('./components/QuestionBankManager').then(m => ({ default: m.QuestionBankManager })));
+const HelpCenter = lazy(() => import('./components/HelpCenter').then(m => ({ default: m.HelpCenter })));
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
+const AboutUs = lazy(() => import('./components/AboutUs').then(m => ({ default: m.AboutUs })));
+const UserProfile = lazy(() => import('./components/UserProfile').then(m => ({ default: m.UserProfile })));
+
 import { generateExamQuestions } from './services/geminiService';
-import { examsService, coursesService, chatService, usersService } from './services/firestoreService';
+import { examsService, coursesService, chatService, usersService, questionBankService } from './services/firestoreService';
 import { useAuth } from './lib/AuthContext';
 import { Exam, ExamParams, Course } from './types';
 
@@ -55,7 +59,7 @@ async function resolveExamsTeacherNames(data: Exam[]): Promise<Exam[]> {
 export default function App() {
   const { user, profile, loading: authLoading, requestDocente, updateProfile, logout } = useAuth();
   const [role, setRole] = useState<'teacher' | 'student' | 'admin'>('student');
-  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin' | 'help' | 'about' | 'privacy' | 'profile'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'creator' | 'review' | 'player' | 'resources' | 'admin' | 'help' | 'about' | 'privacy' | 'profile' | 'questionBank'>('dashboard');
   const [exams, setExams] = useState<Exam[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
@@ -205,20 +209,80 @@ export default function App() {
 
   const handleGenerate = async (params: ExamParams) => {
     setIsGenerating(true);
+    console.time('[Performance] Examen Generado');
     try {
       const apiKey = localStorage.getItem('gemini_api_key') || undefined;
-      const questions = await generateExamQuestions(params, apiKey);
+      
+      // Pull from QuestionBank first for specific course
+      const approvedBankQs = await questionBankService.getApprovedQuestions(params.course);
+      
+      // Match by topic (rough match for topic)
+      const matchingBankQs = approvedBankQs.filter(q => 
+        q.topic.toLowerCase().includes(params.topic.toLowerCase())
+      );
+
+      const shuffledBank = [...matchingBankQs].sort(() => 0.5 - Math.random());
+      const selectedBankQs = shuffledBank.slice(0, params.numQuestions);
+      
+      let finalQuestions = selectedBankQs.map((q) => ({
+        id: crypto.randomUUID(),
+        type: (q.type || 'multiple_choice') as any,
+        prompt: q.prompt,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        justification: q.justification || '',
+        competence: q.competence || '',
+        learningOutcome: q.learningOutcome || '',
+        bloomLevel: q.bloomLevel || '',
+        difficulty: q.difficulty,
+        difficultyJustification: "Proveniente del Banco de Preguntas Institucional",
+        qualityCriteria: { clarity: "Alta", coherence: "Alta", pertinence: "Alta" },
+        teacherRecommendation: "Validada institucionalmente.",
+        inclusionGuidance: q.inclusionGuidance
+      }));
+
+      const numMissing = params.numQuestions - finalQuestions.length;
+      
+      if (numMissing > 0) {
+        const aiParams = { ...params, numQuestions: numMissing };
+        const aiQuestions = await generateExamQuestions(aiParams, apiKey);
+        
+        finalQuestions = [...finalQuestions, ...aiQuestions];
+
+        // Store new AI questions into the bank as pending
+        aiQuestions.forEach(aiQ => {
+           questionBankService.createQuestion({
+             prompt: aiQ.prompt,
+             correctAnswer: aiQ.correctAnswer,
+             options: aiQ.options || [],
+             topic: params.topic,
+             course: params.course,
+             difficulty: aiQ.difficulty,
+             status: 'pending',
+             justification: aiQ.justification,
+             competence: aiQ.competence,
+             learningOutcome: aiQ.learningOutcome,
+             bloomLevel: aiQ.bloomLevel,
+             type: aiQ.type,
+             inclusionGuidance: aiQ.inclusionGuidance || ''
+           }).catch(e => console.error("Could not save to question bank", e));
+        });
+      }
+
       setCurrentExam({
         ...params,
         id: crypto.randomUUID(),
         title: `Examen: ${params.topic}`,
-        questions,
+        questions: finalQuestions,
         createdAt: Date.now(),
         teacherName: profile?.fullName || user?.displayName || undefined
       });
       setView('review');
       setSelectedCourseForExam(null); // Clear after generation
+      
+      console.timeEnd('[Performance] Examen Generado');
     } catch (error) {
+      console.timeEnd('[Performance] Examen Generado');
       if (error instanceof Error && error.message === 'API_KEY_MISSING') {
         setShowApiKeyAlert(true);
       } else {
@@ -303,18 +367,24 @@ export default function App() {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-4 lg:gap-8">
             {role !== 'admin' && (
-              <>
+              <div className="flex items-center gap-4 lg:gap-8">
                 <NavLink active={view === 'dashboard'} onClick={() => setView('dashboard')}>Inicio</NavLink>
                 {role !== 'student' && (
-                  <NavLink active={view === 'resources'} onClick={() => setView('resources')}>Herramientas IA</NavLink>
+                  <>
+                    <NavLink active={view === 'resources'} onClick={() => setView('resources')}>Herramientas IA</NavLink>
+                    <NavLink active={view === 'questionBank'} onClick={() => setView('questionBank')}>Banco de Preguntas</NavLink>
+                  </>
                 )}
-              </>
+              </div>
             )}
             {role === 'admin' && (
               <div className="relative">
-                <NavLink active={view === 'admin'} onClick={() => setView('admin')}>Administración</NavLink>
+                <div className="flex items-center gap-4 lg:gap-8">
+                  <NavLink active={view === 'admin'} onClick={() => setView('admin')}>Administración</NavLink>
+                  <NavLink active={view === 'questionBank'} onClick={() => setView('questionBank')}>Banco de Preguntas</NavLink>
+                </div>
                 {hasUnreadMessages && (
                   <span className="absolute -top-1 -right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
                 )}
@@ -480,82 +550,108 @@ export default function App() {
               </div>
             )}
             
-            <Dashboard 
-              exams={exams}
-              role={role}
-              courses={courses}
-              enrolledCourses={enrolledCourses}
-              onCreateNew={handleCreateNewExam} 
-              onViewExam={(exam) => {
-                setCurrentExam(exam);
-                setView('player');
-              }}
-              onDeleteExam={handleDeleteExam}
-              onCreateCourse={handleCreateCourse}
-              onDeleteCourse={handleDeleteCourse}
-              onEnroll={handleEnroll}
-            />
+            <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+              <Dashboard 
+                exams={exams}
+                role={role}
+                courses={courses}
+                enrolledCourses={enrolledCourses}
+                onCreateNew={handleCreateNewExam} 
+                onViewExam={(exam) => {
+                  setCurrentExam(exam);
+                  setView('player');
+                }}
+                onDeleteExam={handleDeleteExam}
+                onCreateCourse={handleCreateCourse}
+                onDeleteCourse={handleDeleteCourse}
+                onEnroll={handleEnroll}
+              />
+            </Suspense>
           </div>
         )}
 
         {view === 'admin' && role === 'admin' && (
-          <AdminPanel />
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <AdminPanel />
+          </Suspense>
         )}
 
         {view === 'creator' && (
-          <ExamCreator 
-            onBack={() => setView('dashboard')} 
-            onGenerate={handleGenerate}
-            isGenerating={isGenerating}
-            courses={courses}
-            initialCourseId={selectedCourseForExam || undefined}
-          />
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <ExamCreator 
+              onBack={() => setView('dashboard')} 
+              onGenerate={handleGenerate}
+              isGenerating={isGenerating}
+              courses={courses}
+              initialCourseId={selectedCourseForExam || undefined}
+            />
+          </Suspense>
         )}
 
         {view === 'review' && currentExam && (
-          <QuestionReview 
-            exam={currentExam as Exam} 
-            onSave={handleSaveExam}
-            onCancel={() => setView('dashboard')}
-          />
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <QuestionReview 
+              exam={currentExam as Exam} 
+              onSave={handleSaveExam}
+              onCancel={() => setView('dashboard')}
+            />
+          </Suspense>
         )}
 
         {view === 'player' && currentExam && (
-          <ExamPlayer 
-            exam={currentExam as Exam}
-            mode={role}
-            onClose={() => {
-              setView('dashboard');
-              setCurrentExam(null);
-            }}
-          />
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <ExamPlayer 
+              exam={currentExam as Exam}
+              mode={role}
+              onClose={() => {
+                setView('dashboard');
+                setCurrentExam(null);
+              }}
+            />
+          </Suspense>
         )}
 
         {view === 'resources' && role !== 'admin' && (
-          <AIResources />
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <AIResources />
+          </Suspense>
+        )}
+
+        {view === 'questionBank' && (role === 'admin' || role === 'teacher') && (
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <QuestionBankManager isAdmin={role === 'admin'} />
+          </Suspense>
         )}
 
         {view === 'help' && (
-          <HelpCenter onBack={() => setView('dashboard')} />
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <HelpCenter onBack={() => setView('dashboard')} />
+          </Suspense>
         )}
 
         {view === 'privacy' && (
-          <PrivacyPolicy onBack={() => setView('dashboard')} />
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <PrivacyPolicy onBack={() => setView('dashboard')} />
+          </Suspense>
         )}
 
         {view === 'about' && (
-          <AboutUs onBack={() => setView('dashboard')} />
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <AboutUs onBack={() => setView('dashboard')} />
+          </Suspense>
         )}
 
         {view === 'profile' && profile && (
-          <UserProfile 
-            profile={profile}
-            examsCount={exams.length}
-            coursesCount={role === 'student' ? enrolledCourses.length : courses.length}
-            exams={exams}
-            onUpdate={updateProfile}
-            onBack={() => setView('dashboard')}
-          />
+          <Suspense fallback={<div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-primary" size={32} /></div>}>
+            <UserProfile 
+              profile={profile}
+              examsCount={exams.length}
+              coursesCount={role === 'student' ? enrolledCourses.length : courses.length}
+              exams={exams}
+              onUpdate={updateProfile}
+              onBack={() => setView('dashboard')}
+            />
+          </Suspense>
         )}
       </main>
 
@@ -609,7 +705,7 @@ export default function App() {
 const NavLink: React.FC<{ children: React.ReactNode, active?: boolean, onClick?: () => void }> = ({ children, active, onClick }) => (
   <button 
     onClick={onClick}
-    className={`text-sm font-bold uppercase tracking-widest transition-all ${
+    className={`text-xs xl:text-sm font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
       active ? 'text-brand-primary' : 'text-slate-400 hover:text-slate-900'
     }`}
   >
