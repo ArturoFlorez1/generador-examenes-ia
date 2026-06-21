@@ -140,6 +140,30 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     });
   }
 
+  const isDiagnostic = !!params.isDiagnostic;
+  const learningNeeds = params.learningNeeds || [];
+  
+  const diagnosticPrompt = isDiagnostic ? `
+    AVISO: SE HA SOLICITADO PRUEBA DIAGNÓSTICA INICIAL.
+    - El objetivo NO es calificar rígidamente, sino identificar brechas previas de conocimiento.
+    - Las preguntas deben rastrear conceptos prerrequisito e ideas fundacionales.
+    - Elabora justificaciones y retroalimentaciones orientadas a la nivelación.
+  ` : "";
+
+  let inclusionPrompt = "";
+  if (learningNeeds.length > 0) {
+    inclusionPrompt = `
+    AVISO DE INCLUSIÓN Y ADAPTACIÓN (DAA):
+    El docente ha indicado que tiene estudiantes con las siguientes discapacidades o necesidades:
+    ${learningNeeds.map(need => `- ${need.toUpperCase()}`).join('\n')}
+    
+    IMPORTANTE: Construye las preguntas conceptual y visualmente "NORMALES" (como lo harías para un estudiante sin discapacidad). 
+    SIN EMBARGO, en el campo requerido 'inclusionGuidance', debes proporcionarle al docente una guía didáctica detallada sobre cómo debería presentar, adaptar o leer esta pregunta específicamente al estudiante con la discapacidad indicada para que pueda entenderla y responderla mejor. 
+    
+    ¡FUNDAMENTAL!: Debes incluir en esta guía ESTRATEGIAS SIMPLES Y DE BAJO COSTO. Muchos docentes no cuentan con herramientas avanzadas o de alta tecnología en el aula. Por tanto, bríndales ejemplos prácticos, recursos manuales o táctiles simples (como uso de objetos cotidianos, hojas de papel en alto contraste, o lectura en voz alta con pausas) que puedan usar fácilmente para aplicar la pregunta a esos muchachos.
+    `;
+  }
+
   const saberProModePrompt = isSaberPro ? `
     AVISO: ESTÁS EN MODO SABER PRO / ICFES.
     Debes seguir estrictamente la estructura académica de las pruebas de Estado en Colombia:
@@ -168,6 +192,8 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
     Tu función es asistir a docentes en la creación de instrumentos de evaluación basados en evidencias de aprendizaje (Cuestionarios, Estudios de Caso, Talleres) para Programación e Informática.
     
     ${saberProModePrompt}
+    ${diagnosticPrompt}
+    ${inclusionPrompt}
     ${pdfPrompt}
 
     Lineamientos obligatorios para CADA ítem:
@@ -241,7 +267,8 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
                 pertinence: { type: Type.STRING }
               }
             },
-            teacherRecommendation: { type: Type.STRING }
+            teacherRecommendation: { type: Type.STRING },
+            inclusionGuidance: { type: Type.STRING }
           },
           required: [
             "id", "type", "prompt", "correctAnswer", "justification", "competence", 

@@ -41,6 +41,7 @@ export interface Question {
   difficultyJustification: string;
   qualityCriteria: QualityCriteria;
   teacherRecommendation: string;
+  inclusionGuidance?: string;
 }
 
 export interface Exam {
@@ -179,4 +180,6 @@ export interface ExamParams {
   pdfText?: string;
   pdfFileName?: string;
   pdfUseMode?: 'context' | 'direct';
+  isDiagnostic?: boolean;
+  learningNeeds?: string[];
 }

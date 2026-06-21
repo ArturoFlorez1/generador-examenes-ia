@@ -49,9 +49,25 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
   const [instructions, setInstructions] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeGuideDifficulty, setActiveGuideDifficulty] = useState<'bajo' | 'medio' | 'alto' | 'integral' | null>(null);
+  const [editedQuestions, setEditedQuestions] = useState<Set<string>>(new Set());
 
   const deleteQuestion = (id: string) => {
     setQuestions(prev => prev.filter(q => q.id !== id));
+  };
+
+  const handleEditChange = (index: number, field: keyof Question, value: any) => {
+    const newQs = [...questions];
+    newQs[index] = { ...newQs[index], [field]: value };
+    setQuestions(newQs);
+    setEditedQuestions(prev => new Set(prev).add(questions[index].id));
+  };
+
+  const handleSaveEdits = (id: string) => {
+    setEditedQuestions(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
   const handleReformulate = async (id: string) => {
@@ -258,16 +274,33 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <FileText size={14}/> Enunciado del Instrumento
                   </label>
-                  <textarea
-                    rows={Math.max(3, Math.ceil(q.prompt.length / 60))}
-                    className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-3xl p-8 focus:border-brand-primary focus:bg-white outline-none min-h-[140px] transition-all font-bold text-xl text-slate-900 leading-relaxed shadow-inner resize-none break-words"
-                    value={q.prompt}
-                    onChange={e => {
-                      const newQs = [...questions];
-                      newQs[index].prompt = e.target.value;
-                      setQuestions(newQs);
-                    }}
-                  />
+                  <div className="relative">
+                    <textarea
+                      rows={Math.max(3, Math.ceil(q.prompt.length / 60))}
+                      className="w-full bg-slate-50/50 border-2 border-slate-100 rounded-3xl p-8 pb-16 focus:border-brand-primary focus:bg-white outline-none min-h-[140px] transition-all font-bold text-xl text-slate-900 leading-relaxed shadow-inner resize-none break-words"
+                      value={q.prompt}
+                      onChange={e => handleEditChange(index, 'prompt', e.target.value)}
+                    />
+                    <AnimatePresence>
+                      {editedQuestions.has(q.id) && (
+                        <motion.div 
+                          layout
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          className="absolute bottom-4 right-4"
+                        >
+                          <button 
+                            onClick={() => handleSaveEdits(q.id)}
+                           className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-slate-800 transition-all shadow-md shadow-slate-900/10"
+                          >
+                             <Save size={14} />
+                             Guardar
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 {q.options && q.options.length > 0 && (
@@ -290,9 +323,9 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                             className="bg-transparent border-none outline-none flex-1 font-medium resize-none leading-relaxed h-auto"
                             value={opt}
                             onChange={(e) => {
-                              const newQs = [...questions];
-                              newQs[index].options![i] = e.target.value;
-                              setQuestions(newQs);
+                              const newOptions = [...q.options!];
+                              newOptions[i] = e.target.value;
+                              handleEditChange(index, 'options', newOptions);
                             }}
                           />
                         </div>
@@ -311,11 +344,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                       <input
                         className="w-full bg-emerald-50/30 border border-emerald-100 rounded-2xl p-4 focus:ring-4 focus:ring-emerald-500/5 outline-none transition-all font-black text-emerald-700"
                         value={q.correctAnswer}
-                        onChange={e => {
-                          const newQs = [...questions];
-                          newQs[index].correctAnswer = e.target.value;
-                          setQuestions(newQs);
-                        }}
+                        onChange={e => handleEditChange(index, 'correctAnswer', e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
@@ -325,11 +354,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                       <input
                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 focus:border-brand-primary outline-none transition-all font-medium text-slate-600"
                         value={q.competence}
-                        onChange={e => {
-                          const newQs = [...questions];
-                          newQs[index].competence = e.target.value;
-                          setQuestions(newQs);
-                        }}
+                        onChange={e => handleEditChange(index, 'competence', e.target.value)}
                       />
                     </div>
                   </div>
@@ -342,11 +367,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                       className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 outline-none focus:bg-white/10 transition-all text-xs text-slate-300 leading-relaxed italic resize-none break-words min-h-[120px]"
                       rows={Math.max(4, Math.ceil(q.justification.length / 50))}
                       value={q.justification}
-                      onChange={e => {
-                        const newQs = [...questions];
-                        newQs[index].justification = e.target.value;
-                        setQuestions(newQs);
-                      }}
+                      onChange={e => handleEditChange(index, 'justification', e.target.value)}
                     />
                     <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/10">
                        <span className="text-[8px] font-black uppercase text-white/40 tracking-widest">Recomendación:</span>
@@ -365,6 +386,15 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
                     </span>
                   ))}
                 </div>
+
+                {q.inclusionGuidance && (
+                  <div className="bg-purple-50 p-6 rounded-2xl border border-purple-200">
+                    <div className="flex items-center gap-2 text-purple-700 font-black text-[10px] uppercase tracking-widest mb-2">
+                       <Sparkles size={16} /> Guía didáctica para discapacidad
+                    </div>
+                    <p className="text-sm text-purple-800 font-medium leading-relaxed whitespace-pre-wrap">{q.inclusionGuidance}</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
@@ -384,7 +414,7 @@ export const QuestionReview: React.FC<QuestionReviewProps> = ({ exam, onSave, on
         )}
       </div>
 
-      <div className="fixed bottom-10 right-10 z-50">
+      <div className="flex justify-center mt-12 mb-20">
         <button 
           onClick={handleSave}
           className="btn-primary shadow-2xl scale-110 flex items-center gap-3 px-12 py-5 font-black uppercase tracking-widest text-[10px] bg-slate-900 text-white rounded-full transition-transform hover:scale-115 active:scale-105"

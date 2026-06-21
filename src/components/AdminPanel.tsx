@@ -190,8 +190,8 @@ export const AdminPanel: React.FC = () => {
     if (!userToDelete) return;
     setDeleting(true);
     try {
-      await deleteDoc(doc(db, 'users', userToDelete.id));
-      setUsers(users.filter(u => u.id !== userToDelete.id));
+      await deleteDoc(doc(db, 'users', userToDelete.uid));
+      setUsers(users.filter(u => u.uid !== userToDelete.uid));
       setUserToDelete(null);
     } catch (error) {
       console.error("Error deleting user:", error);

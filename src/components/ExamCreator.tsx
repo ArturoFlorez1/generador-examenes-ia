@@ -564,6 +564,61 @@ export const ExamCreator: React.FC<ExamCreatorProps> = ({
                     </div>
                 </div>
               )}
+
+              {/* Evaluación Diagnóstica e Inclusiva */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-slate-400 tracking-widest pl-1 uppercase">Evaluación Diagnóstica e Inclusiva</label>
+                </div>
+                
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center w-6 h-6 border-2 border-slate-300 rounded-md group-hover:border-brand-primary transition-all overflow-hidden bg-white">
+                      <input 
+                        type="checkbox" 
+                        className="absolute opacity-0 w-full h-full cursor-pointer"
+                        checked={params.isDiagnostic || false}
+                        onChange={(e) => setParams(prev => ({ ...prev, isDiagnostic: e.target.checked }))}
+                      />
+                      {params.isDiagnostic && <div className="w-3 h-3 bg-brand-primary rounded-sm" />}
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-slate-700 tracking-tight">Prueba Diagnóstica Inicial</span>
+                      <p className="text-[9px] text-slate-500 font-medium leading-tight">Genera preguntas diseñadas para identificar brechas de conocimiento previas, con orientaciones y nivelación.</p>
+                    </div>
+                  </label>
+
+                  <div className="space-y-3 pt-3 border-t border-slate-200">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Adaptaciones de Inclusión (DAA)</p>
+                     
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                       {[
+                         { id: 'visual', label: 'Discapacidad Visual', desc: 'Lenguaje altamente descriptivo, alternativas para imágenes.' },
+                         { id: 'auditiva', label: 'Discapacidad Auditiva', desc: 'Lenguaje directo, apoyo conceptual visual detallado.' },
+                         { id: 'cognitiva', label: 'Variabilidad Cognitiva', desc: 'Instrucciones simplificadas, segmentación de información.' },
+                         { id: 'motora', label: 'Discapacidad Motora', desc: 'Preguntas directas, minimización de carga cognitiva.' },
+                       ].map(need => (
+                         <label key={need.id} className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${params.learningNeeds?.includes(need.id) ? 'bg-brand-primary/5 border-brand-primary/30' : 'bg-white border-slate-200 hover:border-brand-primary/50'}`}>
+                           <input 
+                             type="checkbox"
+                             className="mt-0.5 accent-brand-primary"
+                             checked={params.learningNeeds?.includes(need.id) || false}
+                             onChange={(e) => {
+                               const needs = params.learningNeeds || [];
+                               if (e.target.checked) setParams({...params, learningNeeds: [...needs, need.id]});
+                               else setParams({...params, learningNeeds: needs.filter(n => n !== need.id)});
+                             }}
+                           />
+                           <div>
+                             <p className="text-[9px] font-black text-slate-700 uppercase tracking-tight">{need.label}</p>
+                             <p className="text-[8px] text-slate-500 font-medium leading-[1.2] mt-1">{need.desc}</p>
+                           </div>
+                         </label>
+                       ))}
+                     </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="pt-6 border-t border-slate-100 grid grid-cols-2 gap-4">

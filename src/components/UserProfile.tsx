@@ -139,20 +139,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({
                 <motion.div layoutId="profileTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />
               )}
             </button>
-            <button
-              onClick={() => setSecTab('stats')}
-              className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${
-                secTab === 'stats' ? 'text-brand-primary' : 'text-slate-400 hover:text-slate-900'
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <TrendingUp size={14} />
-                Plan Saber Pro y Estadísticas
-              </span>
-              {secTab === 'stats' && (
-                <motion.div layoutId="profileTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />
-              )}
-            </button>
+            {profile.role === 'teacher' && (
+              <button
+                onClick={() => setSecTab('stats')}
+                className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${
+                  secTab === 'stats' ? 'text-brand-primary' : 'text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <TrendingUp size={14} />
+                  Plan Saber Pro y Estadísticas
+                </span>
+                {secTab === 'stats' && (
+                  <motion.div layoutId="profileTabLine" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary" />
+                )}
+              </button>
+            )}
           </div>
 
           <AnimatePresence mode="wait">
