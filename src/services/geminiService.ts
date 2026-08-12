@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { courseKnowledgeBase } from "../lib/knowledgeBase";
 import { Question, ExamParams } from "../types";
 
 function getAI(apiKey?: string) {
@@ -124,6 +125,21 @@ export async function generateExamQuestions(params: ExamParams, apiKey?: string)
       Debes utilizar la información del PDF como referencia teórica o contexto conceptual del examen. Diseña nuevas preguntas de tu autoría analizando, evaluando y aplicando las ideas, metodologías, códigos o teorías descritas en dicho material, garantizando que el examen esté directamente alineado con la lectura suministrada.
       `;
     }
+  }
+
+  
+  let syllabusPrompt = "";
+  if (courseKnowledgeBase[course]) {
+    syllabusPrompt = `
+    AVISO DE ALINEACIÓN CON PLAN DE CURSO (SÍLABO):
+    Se ha detectado que el curso "${course}" tiene un plan de curso oficial registrado en la base de conocimientos.
+    
+    A continuación se detallan los temas y el propósito oficial de este curso:
+    ${courseKnowledgeBase[course]}
+    
+    INSTRUCCIÓN DE ALINEACIÓN:
+    Deberás APROPIARTE completamente de estos temas. Asegúrate de que las preguntas generadas, el vocabulario utilizado y los contextos planteados estén íntimamente alineados con los temas oficiales descritos arriba. No te desvíes hacia temas genéricos si el sílabo especifica una tecnología o metodología concreta (por ejemplo, si menciona Vuejs, Nodejs, o un autor específico, úsalos en los contextos).
+    `;
   }
 
   let distributionText = "";

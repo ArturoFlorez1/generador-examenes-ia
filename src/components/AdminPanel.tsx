@@ -16,7 +16,10 @@ import {
   Mail,
   Trash2,
   AlertTriangle,
-  TrendingUp
+  TrendingUp,
+  BookOpen,
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import { collection, query, getDocs, updateDoc, doc, serverTimestamp, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -39,20 +42,28 @@ import {
 import { useAuth } from '../lib/AuthContext';
 import { ChatList } from './Chat/ChatList';
 import { ChatWindow } from './Chat/ChatWindow';
-import { chatService, usersService, examsService } from '../services/firestoreService';
+import { chatService, usersService, examsService, coursesService } from '../services/firestoreService';
 
 export const AdminPanel: React.FC = () => {
   const { profile } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'metrics' | 'users' | 'exams' | 'messages'>('metrics');
+  const [activeTab, setActiveTab] = useState<'metrics' | 'users' | 'courses' | 'exams' | 'teachers' | 'messages'>('metrics');
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<any[]>([]);
   const [userToDelete, setUserToDelete] = useState<any | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<any | null>(null);
+  
+  // Teachers drill-down states
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -71,6 +82,10 @@ export const AdminPanel: React.FC = () => {
         setSubmissions(snap.docs.map(doc => ({...doc.data(), id: doc.id})));
     });
 
+    const unsubCourses = onSnapshot(collection(db, 'courses'), (snap) => {
+        setCourses(snap.docs.map(doc => ({...doc.data(), id: doc.id})));
+    });
+
     const unsubConversations = chatService.subscribeToUserConversations(profile.uid, true, setConversations);
 
     setLoading(false);
@@ -79,6 +94,7 @@ export const AdminPanel: React.FC = () => {
         unsubUsers();
         unsubExams();
         unsubAttempts();
+        unsubCourses();
         unsubConversations();
     };
   }, [profile?.uid, profile?.role, profile?.email]);
@@ -117,20 +133,36 @@ export const AdminPanel: React.FC = () => {
     { name: 'Estudiantes', value: stats.students, color: '#3b82f6' },
   ];
 
-  const examsPerTeacher = useMemo(() => {
-    const teacherMap: Record<string, { name: string, count: number }> = {};
-    users.filter(u => u.role === 'teacher').forEach(u => {
-      teacherMap[u.uid] = { name: u.email?.split('@')[0] || 'Docente', count: 0 };
-    });
-    
-    exams.forEach(e => {
-      if (teacherMap[e.creatorId]) {
-        teacherMap[e.creatorId].count++;
-      }
-    });
-    
-    return Object.values(teacherMap).sort((a, b) => b.count - a.count);
-  }, [users, exams]);
+  const detailedTeacherStats = useMemo(() => {
+    return users.filter(u => u.role === 'teacher' || (u.role === 'admin' && u.email !== 'florezarturo1816@gmail.com')).map(teacher => {
+      const teacherCourses = courses.filter(c => c.creatorId === teacher.uid);
+      const teacherExams = exams.filter(e => e.creatorId === teacher.uid);
+      
+      const examsWithSubmissions = teacherExams.map(exam => {
+        const examSubmissions = submissions.filter(s => s.examId === exam.id);
+        const studentDetails = examSubmissions.map(sub => {
+          const student = users.find(u => u.uid === sub.studentId);
+          return {
+            ...sub,
+            studentName: student?.fullName || student?.email || 'Desconocido'
+          };
+        });
+        return {
+          ...exam,
+          submissionsCount: examSubmissions.length,
+          studentDetails
+        };
+      });
+
+      return {
+        uid: teacher.uid,
+        name: teacher.fullName || teacher.email || 'Docente',
+        coursesCount: teacherCourses.length,
+        examsCount: teacherExams.length,
+        exams: examsWithSubmissions
+      };
+    }).sort((a, b) => b.examsCount - a.examsCount);
+  }, [users, exams, courses, submissions]);
 
   const submissionsByDay = useMemo(() => {
     const daily: Record<string, number> = {};
@@ -200,6 +232,19 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleDeleteCourse = async () => {
+    if (!courseToDelete) return;
+    setDeleting(true);
+    try {
+      await coursesService.delete(courseToDelete.id);
+      setCourseToDelete(null);
+    } catch (error) {
+      console.error("Error deleting course:", error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -235,6 +280,8 @@ export const AdminPanel: React.FC = () => {
         {[
           { id: 'metrics', label: 'Métricas de Uso', icon: BarChart3, count: 0 },
           { id: 'users', label: 'Usuarios', icon: Users, count: stats.pendingRequests },
+          { id: 'courses', label: 'Cursos', icon: BookOpen, count: courses.length },
+          { id: 'teachers', label: 'Desempeño Docente', icon: GraduationCap, count: 0 },
           { id: 'exams', label: 'Repositorio', icon: FileText, count: 0 },
           { id: 'messages', label: 'Mensajes de Soporte', icon: MessageSquare, count: conversations.filter(c => c.unreadFor?.includes('admin')).length }
         ].map(tab => (
@@ -353,66 +400,7 @@ export const AdminPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Teacher Activity List - Scalable */}
-          <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                <UserCog className="text-brand-primary" /> Actividad detallada por docente
-              </h3>
-              <span className="text-[10px] font-black bg-slate-100 text-slate-400 px-3 py-1 rounded-full uppercase tracking-widest">
-                {examsPerTeacher.length} Docentes registrados
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {examsPerTeacher.map((teacher, idx) => (
-                <div key={idx} className="flex items-center justify-between p-5 bg-slate-50 rounded-[32px] border border-slate-100 group hover:border-brand-primary/30 transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center font-black text-brand-primary text-sm group-hover:bg-brand-primary group-hover:text-white transition-colors">
-                      {teacher.count}
-                    </div>
-                    <div className="truncate">
-                      <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{teacher.name}</p>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Exámenes totales</p>
-                    </div>
-                  </div>
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Activo" />
-                </div>
-              ))}
-              {examsPerTeacher.length === 0 && (
-                <div className="col-span-full text-center py-10 italic text-slate-400 text-sm">No hay actividad docente registrada aún.</div>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Detailed Teacher List */}
-            <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                  <UserCog className="text-brand-primary" /> Docentes Vinculados
-                </h3>
-              </div>
-              <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-hide">
-                {users.filter(u => u.role === 'teacher' || (u.role === 'admin' && u.email !== 'florezarturo1816@gmail.com')).map((u, i) => {
-                  const teacherExams = exams.filter(e => e.creatorId === u.uid).length;
-                  // We would need courses collection but for now we have exams
-                  return (
-                    <div key={i} className="flex items-center justify-between p-5 bg-slate-50 rounded-3xl border border-slate-100 group hover:border-brand-primary/30 transition-all">
-                      <div className="truncate pr-4">
-                        <p className="text-sm font-black text-slate-900 truncate uppercase tracking-tight">{u.fullName || 'Docente sin nombre'}</p>
-                        <p className="text-[10px] text-slate-400 font-bold font-mono">{u.email}</p>
-                      </div>
-                      <div className="bg-white px-4 py-2 rounded-2xl border border-slate-100 flex flex-col items-center">
-                        <span className="text-[14px] font-black text-brand-primary leading-none">{teacherExams}</span>
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Instrumentos</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 gap-8">
             {/* Detailed Student List */}
             <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm space-y-6">
               <div className="flex items-center justify-between">
@@ -546,6 +534,55 @@ export const AdminPanel: React.FC = () => {
 
           {/* Delete Confirmation Modal */}
           <AnimatePresence>
+            {courseToDelete && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-white rounded-[40px] p-8 max-w-md w-full shadow-2xl relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-8">
+                    <button 
+                      onClick={() => setCourseToDelete(null)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <XCircle size={24} />
+                    </button>
+                  </div>
+                  <div className="flex flex-col items-center text-center space-y-6">
+                    <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center">
+                      <AlertTriangle size={40} />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Confirmar eliminación</h3>
+                      <p className="text-slate-500 font-medium leading-relaxed">
+                        ¿Estás seguro de que deseas eliminar el curso <span className="text-rose-600 font-bold">{courseToDelete.name}</span>? 
+                        Esta acción no se puede deshacer.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 w-full pt-4">
+                      <button 
+                        onClick={() => setCourseToDelete(null)}
+                        className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        onClick={handleDeleteCourse}
+                        disabled={deleting}
+                        className="flex justify-center items-center px-6 py-4 bg-rose-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all"
+                      >
+                        {deleting ? <Loader2 size={16} className="animate-spin" /> : 'Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+            
             {userToDelete && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
                 <motion.div 
@@ -599,6 +636,255 @@ export const AdminPanel: React.FC = () => {
         </div>
       )}
 
+      {activeTab === 'courses' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Gestión de Cursos</h2>
+          </div>
+          
+          <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="py-5 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre</th>
+                    <th className="py-5 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Código</th>
+                    <th className="py-5 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Docente</th>
+                    <th className="py-5 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {courses.map(c => (
+                    <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-brand-primary/10 text-brand-primary flex items-center justify-center font-bold">
+                            {c.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900 truncate max-w-[200px]">{c.name}</p>
+                            <p className="text-xs text-slate-400">{c.description || 'Sin descripción'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-sm font-medium text-slate-600 font-mono">
+                        {c.code}
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                           {c.creatorName || 'Desconocido'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <button 
+                          onClick={() => setCourseToDelete(c)}
+                          className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                          title="Eliminar curso"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {courses.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-12 text-center text-slate-400 text-sm">No hay cursos registrados.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'teachers' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Desempeño Docente</h2>
+                {selectedTeacherId && (
+                   <div className="flex items-center gap-2 mt-2 text-sm text-slate-500 font-bold uppercase tracking-widest">
+                       <button onClick={() => { setSelectedTeacherId(null); setSelectedCourseId(null); setSelectedExamId(null); }} className="hover:text-brand-primary transition-colors">Docentes</button>
+                       {selectedCourseId && (
+                           <>
+                               <ChevronRight size={14} />
+                               <button onClick={() => { setSelectedCourseId(null); setSelectedExamId(null); }} className="hover:text-brand-primary transition-colors">Cursos</button>
+                           </>
+                       )}
+                       {selectedExamId && (
+                           <>
+                               <ChevronRight size={14} />
+                               <span>Examen</span>
+                           </>
+                       )}
+                   </div>
+                )}
+            </div>
+          </div>
+          
+          <div className="space-y-6">
+            {!selectedTeacherId && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {detailedTeacherStats.map((teacher) => (
+                  <button 
+                    key={teacher.uid} 
+                    onClick={() => setSelectedTeacherId(teacher.uid)}
+                    className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-6 flex flex-col items-start gap-4 hover:border-brand-primary/30 transition-all text-left group"
+                  >
+                    <div className="w-12 h-12 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-center justify-center group-hover:bg-brand-primary group-hover:text-white transition-colors">
+                      <GraduationCap size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900 tracking-tight uppercase truncate w-full">{teacher.name}</h3>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Docente Titular</p>
+                    </div>
+                    <div className="w-full flex gap-2 mt-2">
+                        <div className="flex-1 bg-slate-50 px-3 py-2 rounded-xl flex flex-col items-center justify-center">
+                            <span className="text-lg font-black text-blue-500">{teacher.coursesCount}</span>
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Cursos</span>
+                        </div>
+                        <div className="flex-1 bg-slate-50 px-3 py-2 rounded-xl flex flex-col items-center justify-center">
+                            <span className="text-lg font-black text-brand-primary">{teacher.examsCount}</span>
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Exámenes</span>
+                        </div>
+                    </div>
+                  </button>
+                ))}
+                
+                {detailedTeacherStats.length === 0 && (
+                   <div className="col-span-full text-center py-20 bg-slate-50 rounded-[40px] border border-slate-100">
+                     <p className="text-slate-400 font-medium">No hay docentes registrados.</p>
+                   </div>
+                )}
+              </div>
+            )}
+
+            {selectedTeacherId && !selectedCourseId && (
+                <div className="space-y-4">
+                    <button onClick={() => setSelectedTeacherId(null)} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold uppercase text-xs tracking-widest transition-colors mb-4">
+                        <ArrowLeft size={16} /> Volver a Docentes
+                    </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {courses.filter(c => c.creatorId === selectedTeacherId).map(course => (
+                            <button 
+                                key={course.id}
+                                onClick={() => setSelectedCourseId(course.id)}
+                                className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-6 flex items-center justify-between hover:border-brand-primary/30 transition-all text-left group"
+                            >
+                                <div className="flex flex-col">
+                                    <h4 className="font-bold text-slate-900 truncate max-w-[200px]">{course.name}</h4>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-mono mt-1">Código: {course.code}</span>
+                                </div>
+                                <ChevronRight className="text-slate-300 group-hover:text-brand-primary transition-colors" />
+                            </button>
+                        ))}
+                        {courses.filter(c => c.creatorId === selectedTeacherId).length === 0 && (
+                            <div className="col-span-full text-center py-12 text-slate-400 text-sm">Este docente no tiene cursos.</div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {selectedCourseId && !selectedExamId && (
+                <div className="space-y-4">
+                    <button onClick={() => setSelectedCourseId(null)} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold uppercase text-xs tracking-widest transition-colors mb-4">
+                        <ArrowLeft size={16} /> Volver a Cursos
+                    </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {exams.filter(e => e.course === selectedCourseId && e.creatorId === selectedTeacherId).map(exam => {
+                            const subs = submissions.filter(s => s.examId === exam.id);
+                            return (
+                                <button 
+                                    key={exam.id}
+                                    onClick={() => setSelectedExamId(exam.id)}
+                                    className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-6 flex flex-col gap-4 hover:border-brand-primary/30 transition-all text-left group"
+                                >
+                                    <div>
+                                        <h4 className="font-bold text-slate-900 line-clamp-2">{exam.title}</h4>
+                                        <span className="text-[10px] text-slate-400 uppercase tracking-widest mt-1 inline-block">{exam.topic}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between w-full mt-2 pt-4 border-t border-slate-50">
+                                        <span className="px-3 py-1 bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-widest rounded-full">{subs.length} Intentos</span>
+                                        <ChevronRight className="text-slate-300 group-hover:text-brand-primary transition-colors" />
+                                    </div>
+                                </button>
+                            );
+                        })}
+                        {exams.filter(e => e.course === selectedCourseId && e.creatorId === selectedTeacherId).length === 0 && (
+                            <div className="col-span-full text-center py-12 text-slate-400 text-sm">No hay exámenes en este curso.</div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {selectedExamId && (
+                <div className="space-y-6">
+                    <button onClick={() => setSelectedExamId(null)} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold uppercase text-xs tracking-widest transition-colors mb-4">
+                        <ArrowLeft size={16} /> Volver a Exámenes
+                    </button>
+                    
+                    <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm p-8">
+                        {(() => {
+                            const exam = exams.find(e => e.id === selectedExamId);
+                            const examSubs = submissions.filter(s => s.examId === selectedExamId);
+                            const enrichedSubs = examSubs.map(sub => {
+                                const student = users.find(u => u.uid === sub.studentId);
+                                return {
+                                    ...sub,
+                                    studentName: student?.fullName || student?.email || 'Estudiante Desconocido'
+                                };
+                            }).sort((a, b) => b.score - a.score);
+
+                            return (
+                                <div className="space-y-6">
+                                    <div className="border-b border-slate-100 pb-6">
+                                        <h3 className="text-xl font-black text-slate-900 tracking-tight">{exam?.title}</h3>
+                                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">{exam?.topic} &bull; {examSubs.length} Intentos</p>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                            <tr className="border-b border-slate-100 bg-slate-50/50">
+                                                <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estudiante</th>
+                                                <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Fecha</th>
+                                                <th className="py-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Puntaje</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {enrichedSubs.map((sub, idx) => (
+                                                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                        <td className="py-4 px-6 text-sm font-bold text-slate-900 uppercase">
+                                                            {sub.studentName}
+                                                        </td>
+                                                        <td className="py-4 px-6 text-xs text-slate-500 font-medium">
+                                                            {sub.submittedAt ? new Date(sub.submittedAt?.seconds ? sub.submittedAt.seconds * 1000 : sub.submittedAt).toLocaleString() : 'Desconocida'}
+                                                        </td>
+                                                        <td className="py-4 px-6">
+                                                            <span className={"inline-flex px-3 py-1 rounded-xl text-xs font-black uppercase " + ((sub.score || 0) >= 60 ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100")}>
+                                                                {sub.score || 0}/100
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {enrichedSubs.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={3} className="py-12 text-center text-slate-400 text-sm">No hay intentos registrados.</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'exams' && (
         <div className="space-y-6 animate-in fade-in duration-500">
            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -643,7 +929,7 @@ export const AdminPanel: React.FC = () => {
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-2">
                           <UserCog size={16} className="text-brand-primary" />
-                          <p className="text-sm font-bold text-slate-900">{creator?.email || 'Docente Externo'}</p>
+                          <p className="text-sm font-bold text-slate-900">{creator?.fullName || creator?.email || 'Docente Externo'}</p>
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right">

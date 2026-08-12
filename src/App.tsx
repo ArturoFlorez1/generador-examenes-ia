@@ -32,7 +32,7 @@ const UserProfile = lazy(() => import('./components/UserProfile').then(m => ({ d
 import { generateExamQuestions } from './services/geminiService';
 import { examsService, coursesService, chatService, usersService, questionBankService } from './services/firestoreService';
 import { useAuth } from './lib/AuthContext';
-import { Exam, ExamParams, Course } from './types';
+import { Exam, ExamParams, Course, Question } from './types';
 
 // Helper to resolve teacher names dynamically
 async function resolveExamsTeacherNames(data: Exam[]): Promise<Exam[]> {
@@ -224,7 +224,7 @@ export default function App() {
       const shuffledBank = [...matchingBankQs].sort(() => 0.5 - Math.random());
       const selectedBankQs = shuffledBank.slice(0, params.numQuestions);
       
-      let finalQuestions = selectedBankQs.map((q) => ({
+      let finalQuestions: Question[] = selectedBankQs.map((q) => ({
         id: crypto.randomUUID(),
         type: (q.type || 'multiple_choice') as any,
         prompt: q.prompt,
