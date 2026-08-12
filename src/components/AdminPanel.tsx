@@ -236,7 +236,7 @@ export const AdminPanel: React.FC = () => {
     if (!courseToDelete) return;
     setDeleting(true);
     try {
-      await coursesService.delete(courseToDelete.id);
+      await deleteDoc(doc(db, 'courses', courseToDelete.id));
       setCourseToDelete(null);
     } catch (error) {
       console.error("Error deleting course:", error);
