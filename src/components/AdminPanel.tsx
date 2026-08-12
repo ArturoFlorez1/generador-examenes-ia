@@ -225,8 +225,10 @@ export const AdminPanel: React.FC = () => {
       await deleteDoc(doc(db, 'users', userToDelete.uid));
       setUsers(users.filter(u => u.uid !== userToDelete.uid));
       setUserToDelete(null);
+      alert("Usuario eliminado exitosamente.");
     } catch (error) {
       console.error("Error deleting user:", error);
+      alert("Error al eliminar el usuario: " + error.message);
     } finally {
       setDeleting(false);
     }
@@ -236,10 +238,14 @@ export const AdminPanel: React.FC = () => {
     if (!courseToDelete) return;
     setDeleting(true);
     try {
+      console.log("Deleting course...", courseToDelete.id);
       await deleteDoc(doc(db, 'courses', courseToDelete.id));
+      setCourses(prev => prev.filter(c => c.id !== courseToDelete.id));
       setCourseToDelete(null);
+      alert("Curso eliminado exitosamente.");
     } catch (error) {
       console.error("Error deleting course:", error);
+      alert("Error al eliminar el curso: " + error.message);
     } finally {
       setDeleting(false);
     }
