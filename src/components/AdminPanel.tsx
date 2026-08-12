@@ -538,107 +538,7 @@ export const AdminPanel: React.FC = () => {
             ))}
           </div>
 
-          {/* Delete Confirmation Modal */}
-          <AnimatePresence>
-            {courseToDelete && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-white rounded-[40px] p-8 max-w-md w-full shadow-2xl relative overflow-hidden"
-                >
-                  <div className="absolute top-0 right-0 p-8">
-                    <button 
-                      onClick={() => setCourseToDelete(null)}
-                      className="text-slate-400 hover:text-slate-600"
-                    >
-                      <XCircle size={24} />
-                    </button>
-                  </div>
-                  <div className="flex flex-col items-center text-center space-y-6">
-                    <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center">
-                      <AlertTriangle size={40} />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Confirmar eliminación</h3>
-                      <p className="text-slate-500 font-medium leading-relaxed">
-                        ¿Estás seguro de que deseas eliminar el curso <span className="text-rose-600 font-bold">{courseToDelete.name}</span>? 
-                        Esta acción no se puede deshacer.
-                      </p>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4 w-full pt-4">
-                      <button 
-                        onClick={() => setCourseToDelete(null)}
-                        className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
-                      >
-                        Cancelar
-                      </button>
-                      <button 
-                        onClick={handleDeleteCourse}
-                        disabled={deleting}
-                        className="flex justify-center items-center px-6 py-4 bg-rose-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all"
-                      >
-                        {deleting ? <Loader2 size={16} className="animate-spin" /> : 'Eliminar'}
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-            
-            {userToDelete && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="bg-white rounded-[40px] p-8 max-w-md w-full shadow-2xl relative overflow-hidden"
-                >
-                  <div className="absolute top-0 right-0 p-8">
-                    <button 
-                      onClick={() => setUserToDelete(null)}
-                      className="text-slate-400 hover:text-slate-600"
-                    >
-                      <XCircle size={24} />
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col items-center text-center space-y-6">
-                    <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center">
-                      <AlertTriangle size={40} />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Confirmar eliminación</h3>
-                      <p className="text-slate-500 font-medium leading-relaxed">
-                        ¿Estás seguro de que deseas eliminar a <span className="text-rose-600 font-bold">{userToDelete.fullName || userToDelete.email}</span>? 
-                        Esta acción no se puede deshacer.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 w-full pt-4">
-                      <button 
-                        onClick={() => setUserToDelete(null)}
-                        className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
-                      >
-                        Cancelar
-                      </button>
-                      <button 
-                        onClick={handleDeleteUser}
-                        disabled={deleting}
-                        className="px-6 py-4 bg-rose-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-rose-500/30 hover:scale-105 active:scale-95 disabled:opacity-50 transition-all"
-                      >
-                        {deleting ? <Loader2 className="animate-spin" size={18} /> : 'Eliminar'}
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
         </div>
       )}
 
@@ -988,6 +888,107 @@ export const AdminPanel: React.FC = () => {
           </div>
         </div>
       )}
+          {/* Delete Confirmation Modal */}
+          <AnimatePresence>
+            {courseToDelete && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-white rounded-[40px] p-8 max-w-md w-full shadow-2xl relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-8">
+                    <button 
+                      onClick={() => setCourseToDelete(null)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <XCircle size={24} />
+                    </button>
+                  </div>
+                  <div className="flex flex-col items-center text-center space-y-6">
+                    <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center">
+                      <AlertTriangle size={40} />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Confirmar eliminación</h3>
+                      <p className="text-slate-500 font-medium leading-relaxed">
+                        ¿Estás seguro de que deseas eliminar el curso <span className="text-rose-600 font-bold">{courseToDelete.name}</span>? 
+                        Esta acción no se puede deshacer.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 w-full pt-4">
+                      <button 
+                        onClick={() => setCourseToDelete(null)}
+                        className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        onClick={handleDeleteCourse}
+                        disabled={deleting}
+                        className="flex justify-center items-center px-6 py-4 bg-rose-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-rose-500/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all"
+                      >
+                        {deleting ? <Loader2 size={16} className="animate-spin" /> : 'Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+            
+            {userToDelete && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-white rounded-[40px] p-8 max-w-md w-full shadow-2xl relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-8">
+                    <button 
+                      onClick={() => setUserToDelete(null)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <XCircle size={24} />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center space-y-6">
+                    <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center">
+                      <AlertTriangle size={40} />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Confirmar eliminación</h3>
+                      <p className="text-slate-500 font-medium leading-relaxed">
+                        ¿Estás seguro de que deseas eliminar a <span className="text-rose-600 font-bold">{userToDelete.fullName || userToDelete.email}</span>? 
+                        Esta acción no se puede deshacer.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 w-full pt-4">
+                      <button 
+                        onClick={() => setUserToDelete(null)}
+                        className="px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all"
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        onClick={handleDeleteUser}
+                        disabled={deleting}
+                        className="px-6 py-4 bg-rose-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-rose-500/30 hover:scale-105 active:scale-95 disabled:opacity-50 transition-all"
+                      >
+                        {deleting ? <Loader2 className="animate-spin" size={18} /> : 'Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
     </div>
   );
 };
