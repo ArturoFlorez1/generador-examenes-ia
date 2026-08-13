@@ -324,7 +324,7 @@ export default function App() {
     setConfirmModal({
       isOpen: true,
       title: 'ADVERTENCIA: ¿Eliminar curso?',
-      message: '¿Estás seguro de que deseas eliminar este curso? \n\nAún estamos desarrollando esta función para asegurar que se eliminen también las inscripciones y exámenes asociados de forma permanente. Por ahora, solo se eliminará el acceso principal al curso.',
+      message: '¿Estás seguro de que deseas eliminar este curso? \n\nEsto eliminará permanentemente el curso, todas sus inscripciones, todos los exámenes creados y los intentos de los estudiantes. Esta acción no se puede deshacer.',
       onConfirm: async () => {
         try {
           await coursesService.delete(id);

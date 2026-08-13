@@ -134,6 +134,21 @@ export const examsService = {
   async delete(id: string): Promise<void> {
     const path = `exams/${id}`;
     try {
+      // 1. Delete all exam attempts
+      const attemptsQ = query(collection(db, 'exam_attempts'), where('examId', '==', id));
+      const attemptsSnap = await getDocs(attemptsQ);
+      for (const d of attemptsSnap.docs) {
+        await deleteDoc(doc(db, 'exam_attempts', d.id));
+      }
+      
+      // 2. Delete all submissions (if any legacy submissions exist)
+      const subQ = query(collection(db, 'submissions'), where('examId', '==', id));
+      const subSnap = await getDocs(subQ);
+      for (const d of subSnap.docs) {
+        await deleteDoc(doc(db, 'submissions', d.id));
+      }
+
+      // 3. Delete the exam
       await deleteDoc(doc(db, 'exams', id));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
@@ -262,6 +277,28 @@ export const coursesService = {
   async delete(id: string): Promise<void> {
     const path = `courses/${id}`;
     try {
+      // 1. Delete all exams in this course
+      const examsQ = query(collection(db, 'exams'), where('courseId', '==', id));
+      const examsSnap = await getDocs(examsQ);
+      for (const d of examsSnap.docs) {
+        await deleteDoc(doc(db, 'exams', d.id));
+      }
+
+      // 2. Delete all enrollments
+      const enrollQ = query(collection(db, 'enrollments'), where('courseId', '==', id));
+      const enrollSnap = await getDocs(enrollQ);
+      for (const d of enrollSnap.docs) {
+        await deleteDoc(doc(db, 'enrollments', d.id));
+      }
+
+      // 3. Delete all exam attempts
+      const attemptsQ = query(collection(db, 'exam_attempts'), where('courseId', '==', id));
+      const attemptsSnap = await getDocs(attemptsQ);
+      for (const d of attemptsSnap.docs) {
+        await deleteDoc(doc(db, 'exam_attempts', d.id));
+      }
+
+      // 4. Finally delete the course itself
       await deleteDoc(doc(db, 'courses', id));
     } catch (error) {
       console.error("Firestore delete error:", error);

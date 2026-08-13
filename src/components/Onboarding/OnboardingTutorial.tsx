@@ -9,7 +9,8 @@ import {
   ArrowRight, 
   Sparkles,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../lib/AuthContext';
@@ -66,6 +67,13 @@ export const OnboardingTutorial: React.FC = () => {
               <div>
                 <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Gestión Académica Completa</p>
                 <p className="text-[10px] text-slate-500 font-bold">Creación de cursos con códigos de acceso, inscripciones y seguimiento detallado por cada asignatura.</p>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-3">
+              <BookOpen className="text-emerald-500 shrink-0 mt-1" size={18} />
+              <div>
+                <p className="text-xs font-black text-slate-900 uppercase tracking-tight">Alineación Curricular</p>
+                <p className="text-[10px] text-slate-500 font-bold">Integración de los planes de curso (syllabus) para garantizar exámenes 100% alineados con las competencias esperadas.</p>
               </div>
             </div>
           </div>

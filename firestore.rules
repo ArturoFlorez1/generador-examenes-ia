@@ -233,6 +233,7 @@ service cloud.firestore {
       );
       allow create: if isSignedIn() && isValidAttempt(incoming());
       allow update: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && (isAdmin() || resource.data.get('teacherId', '') == request.auth.uid);
     }
 
     // 6. Conversations Collection

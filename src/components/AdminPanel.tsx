@@ -239,13 +239,13 @@ export const AdminPanel: React.FC = () => {
     setDeleting(true);
     try {
       console.log("Deleting course...", courseToDelete.id);
-      await deleteDoc(doc(db, 'courses', courseToDelete.id));
+      await coursesService.delete(courseToDelete.id);
       setCourses(prev => prev.filter(c => c.id !== courseToDelete.id));
       setCourseToDelete(null);
-      alert("Curso eliminado exitosamente.");
-    } catch (error) {
+      alert("Curso y todo su contenido asociado eliminados exitosamente.");
+    } catch (error: any) {
       console.error("Error deleting course:", error);
-      alert("Error al eliminar el curso: " + error.message);
+      alert("Error al eliminar el curso: " + (error.message || String(error)));
     } finally {
       setDeleting(false);
     }
@@ -698,7 +698,7 @@ export const AdminPanel: React.FC = () => {
                         <ArrowLeft size={16} /> Volver a Cursos
                     </button>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {exams.filter(e => e.course === selectedCourseId && e.creatorId === selectedTeacherId).map(exam => {
+                        {exams.filter(e => e.courseId === selectedCourseId && e.creatorId === selectedTeacherId).map(exam => {
                             const subs = submissions.filter(s => s.examId === exam.id);
                             return (
                                 <button 
@@ -717,7 +717,7 @@ export const AdminPanel: React.FC = () => {
                                 </button>
                             );
                         })}
-                        {exams.filter(e => e.course === selectedCourseId && e.creatorId === selectedTeacherId).length === 0 && (
+                        {exams.filter(e => e.courseId === selectedCourseId && e.creatorId === selectedTeacherId).length === 0 && (
                             <div className="col-span-full text-center py-12 text-slate-400 text-sm">No hay exámenes en este curso.</div>
                         )}
                     </div>

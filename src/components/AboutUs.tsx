@@ -74,6 +74,9 @@ export const AboutUs: React.FC<AboutUsProps> = ({ onBack }) => {
             no es reemplazar al docente, sino potenciar sus capacidades metodológicas, reduciendo sesgos involuntarios 
             y permitiendo una creación de exámenes variada, equilibrada y pedagógicamente rigurosa.
           </p>
+          <p className="text-slate-500 text-lg font-medium leading-relaxed">
+            Para garantizar la máxima pertinencia curricular, <b>EvaluAI incorpora y analiza los planes de curso (syllabus)</b> de las asignaturas propuestas. Esta integración asegura que los exámenes generados estén estrictamente alineados con las competencias, los ejes temáticos y los resultados de aprendizaje esperados.
+          </p>
           
           <div className="grid grid-cols-2 gap-6 pt-8">
             <div className="p-6 bg-slate-50 rounded-[32px] border border-slate-100 italic font-medium text-slate-600 text-sm flex items-center">
