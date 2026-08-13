@@ -169,6 +169,7 @@ service cloud.firestore {
       
       allow list: if isSignedIn() && (
         isAdmin() || 
+        isTeacher() ||
         resource.data.creatorId == request.auth.uid ||
         isEnrolled(resource.data.courseId)
       );
@@ -197,20 +198,22 @@ service cloud.firestore {
       allow get: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin() || isCourseOwner(resource.data.courseId));
       allow list: if isSignedIn() && (
         isAdmin() || 
+        isTeacher() ||
         resource.data.studentId == request.auth.uid || 
         resource.data.get('teacherId', '') == request.auth.uid
       );
       allow create: if isSignedIn() && isValidEnrollment(incoming(), enrollmentId) && (incoming().enrolledAt == request.time || incoming().enrolledAt is timestamp);
-      allow delete: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid) || (isSignedIn() && isCourseOwner(resource.data.courseId));
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid) || isTeacher();
     }
 
     // 3. Submissions Collection
     match /submissions/{submissionId} {
       allow get: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (isAdmin() || isTeacher() || resource.data.studentId == request.auth.uid);
       
       allow create: if isSignedIn() && incoming().studentId == request.auth.uid && (incoming().submittedAt == request.time || incoming().submittedAt is timestamp);
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || isTeacher();
     }
 
     // 4. Support Messages Collection
@@ -228,12 +231,13 @@ service cloud.firestore {
       );
       allow list: if isSignedIn() && (
         isAdmin() || 
+        isTeacher() ||
         resource.data.studentId == request.auth.uid || 
         resource.data.get('teacherId', '') == request.auth.uid
       );
       allow create: if isSignedIn() && isValidAttempt(incoming());
       allow update: if isSignedIn() && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow delete: if isSignedIn() && (isAdmin() || resource.data.get('teacherId', '') == request.auth.uid);
+      allow delete: if isSignedIn() && (isAdmin() || isTeacher());
     }
 
     // 6. Conversations Collection
