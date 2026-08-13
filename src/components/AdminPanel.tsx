@@ -767,8 +767,8 @@ export const AdminPanel: React.FC = () => {
                                                             {sub.submittedAt ? new Date(sub.submittedAt?.seconds ? sub.submittedAt.seconds * 1000 : sub.submittedAt).toLocaleString() : 'Desconocida'}
                                                         </td>
                                                         <td className="py-4 px-6">
-                                                            <span className={"inline-flex px-3 py-1 rounded-xl text-xs font-black uppercase " + ((sub.score || 0) >= 60 ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100")}>
-                                                                {sub.score || 0}/100
+                                                            <span className={"inline-flex px-3 py-1 rounded-xl text-xs font-black uppercase " + ((sub.score || 0) >= 3.0 ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-rose-50 text-rose-600 border border-rose-100")}>
+                                                                {Number(sub.score || 0).toFixed(1)}/5.0
                                                             </span>
                                                         </td>
                                                     </tr>

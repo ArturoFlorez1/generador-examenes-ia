@@ -164,7 +164,7 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
       <div className="max-w-2xl mx-auto space-y-8 animate-in zoom-in duration-500">
         <div className="card p-12 text-center space-y-6">
           <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto ${
-            score >= 60 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+            score >= 3.0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
           }`}>
             <Award size={48} />
           </div>
@@ -187,11 +187,11 @@ export const ExamPlayer: React.FC<ExamPlayerProps> = ({ exam, onClose, mode = 't
           <div className="grid grid-cols-2 gap-4 text-left">
             <div className="card p-4 bg-emerald-50 border-emerald-100">
               <p className="text-xs font-bold text-emerald-600">Aciertos</p>
-              <p className="text-xl font-bold text-emerald-700">{Math.round((score / 100) * exam.questions.length)} / {exam.questions.length}</p>
+              <p className="text-xl font-bold text-emerald-700">{Math.round((score / 5) * exam.questions.length)} / {exam.questions.length}</p>
             </div>
             <div className="card p-4 bg-slate-50">
               <p className="text-xs font-bold text-slate-500">Estado</p>
-              <p className="text-xl font-bold text-slate-700">{score >= 60 ? 'Aprobado' : 'Reprobado'}</p>
+              <p className="text-xl font-bold text-slate-700">{score >= 3.0 ? 'Aprobado' : 'Reprobado'}</p>
             </div>
           </div>
 
