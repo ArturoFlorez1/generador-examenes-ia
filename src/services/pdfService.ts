@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import { Exam, ExamAttempt } from '../types';
 
 export const pdfService = {
@@ -266,5 +267,101 @@ export const pdfService = {
     }
 
     doc.save(`Resultado_${studentName.replace(/\s+/g, '_')}_${exam.topic.replace(/\s+/g, '_')}.pdf`);
+  },
+  async generateExamReportPdf(courseName: string, examTitle: string, teacherName: string, reportData: any[]) {
+    const doc = new jsPDF();
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    let currentY = 15;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(0, 132, 61);
+    doc.text("UNIVERSIDAD DE CÓRDOBA", margin, currentY);
+    
+    currentY += 6;
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text("FACULTAD DE EDUCACIÓN Y CIENCIAS HUMANAS", margin, currentY);
+
+    currentY += 12;
+    doc.setFontSize(14);
+    doc.setTextColor(30, 41, 59);
+    doc.text("INFORME DE RESULTADOS DE EXAMEN", margin, currentY);
+
+    currentY += 10;
+    
+    // Info Box
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, currentY, pageWidth - (margin * 2), 24, 3, 3, "FD");
+    
+    currentY += 7;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100);
+    doc.text("CURSO:", margin + 5, currentY);
+    doc.text("EXAMEN:", margin + pageWidth/2 - 20, currentY);
+    
+    currentY += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(30, 41, 59);
+    doc.text(courseName, margin + 5, currentY);
+    doc.text(examTitle, margin + pageWidth/2 - 20, currentY);
+
+    currentY += 6;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100);
+    doc.text("DOCENTE:", margin + 5, currentY);
+    doc.text("FECHA DE EMISIÓN:", margin + pageWidth/2 - 20, currentY);
+    
+    currentY += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(30, 41, 59);
+    doc.text(teacherName, margin + 5, currentY);
+    doc.text(new Date().toLocaleDateString(), margin + pageWidth/2 - 20, currentY);
+
+    currentY += 15;
+
+    // Table
+    const tableBody = reportData.map((row, idx) => [
+      idx + 1,
+      row.studentName,
+      row.status,
+      row.attemptsCount,
+      row.bestScore !== null ? Number(row.bestScore).toFixed(2) : '-',
+      row.date
+    ]);
+
+    (doc as any).autoTable({
+      startY: currentY,
+      head: [['#', 'ESTUDIANTE', 'ESTADO', 'INTENTOS', 'NOTA FINAL', 'FECHA DE ENTREGA']],
+      body: tableBody,
+      theme: 'grid',
+      headStyles: { fillColor: [0, 132, 61], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', halign: 'center' },
+      bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center', fontStyle: 'bold' },
+        5: { halign: 'center' },
+      },
+      didParseCell: function(data: any) {
+        if (data.section === 'body' && data.column.index === 4) {
+          const score = parseFloat(data.cell.raw);
+          if (!isNaN(score)) {
+            if (score >= 3.0) {
+              data.cell.styles.textColor = [0, 150, 0];
+            } else {
+              data.cell.styles.textColor = [200, 0, 0];
+            }
+          }
+        }
+      }
+    });
+
+    doc.save(`Informe_${examTitle.replace(/\s+/g, '_')}.pdf`);
   }
 };

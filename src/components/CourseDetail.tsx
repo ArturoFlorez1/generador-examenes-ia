@@ -22,6 +22,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '../lib/firebase';
 import { Course, Exam, ExamAttempt, Enrollment } from '../types';
+import { pdfService } from '../services/pdfService';
 import { examAttemptsService, coursesService } from '../services/firestoreService';
 
 interface CourseDetailProps {
@@ -110,6 +111,41 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({
   }, [courseExams, selectedResultsExamId]);
 
   // Build the unified list of students and their corresponding score/status for the selected exam
+  
+  const handleDownloadReport = async () => {
+    if (!selectedExamData) return;
+    
+    const reportData = mergedGradesList.map(row => {
+      const isApproved = row.bestScore !== null && row.bestScore >= 3.0;
+      let status = "Pendiente";
+      if (row.attempt) {
+         status = row.attempt.isFinished ? (isApproved ? "Aprobado" : "Reprobado") : "En progreso";
+      }
+
+      return {
+        studentName: row.studentName,
+        status: status,
+        attemptsCount: row.attemptsCount,
+        bestScore: row.bestScore,
+        date: row.attempt?.submittedAt ? new Date(row.attempt.submittedAt).toLocaleDateString() : '-'
+      };
+    });
+
+    const teacherName = profile?.fullName || auth.currentUser?.email || 'Docente';
+    
+    try {
+      await pdfService.generateExamReportPdf(
+        course.name,
+        selectedExamData.title,
+        teacherName,
+        reportData
+      );
+    } catch (err) {
+      console.error("Error generating report:", err);
+      alert("Hubo un error al generar el reporte.");
+    }
+  };
+
   const mergedGradesList = useMemo(() => {
     if (role === 'student') return [];
 
@@ -498,9 +534,19 @@ export const CourseDetail: React.FC<CourseDetailProps> = ({
                     {/* Selected Exam Information Row */}
                     <div className="bg-white border border-slate-100 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
                       <div>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-md">
-                          Examen Seleccionado
-                        </span>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-indigo-650 bg-indigo-50 px-2 py-0.5 rounded-md">
+                            Examen Seleccionado
+                          </span>
+                          <button 
+                            onClick={handleDownloadReport}
+                            className="flex items-center gap-1.5 px-2 py-0.5 bg-brand-primary text-white text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-brand-secondary transition-colors"
+                            title="Descargar Informe de Resultados (PDF)"
+                          >
+                            <Download size={12} />
+                            Informe
+                          </button>
+                        </div>
                         <h4 className="text-base font-extrabold text-slate-900 mt-1 uppercase break-words leading-tight">{selectedExamData.title}</h4>
                         <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{selectedExamData.topic} • {selectedExamData.questions.length} preguntas</p>
                       </div>

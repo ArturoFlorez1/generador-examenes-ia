@@ -42,6 +42,7 @@ import {
 import { useAuth } from '../lib/AuthContext';
 import { ChatList } from './Chat/ChatList';
 import { ChatWindow } from './Chat/ChatWindow';
+import { pdfService } from '../services/pdfService';
 import { chatService, usersService, examsService, coursesService } from '../services/firestoreService';
 
 export const AdminPanel: React.FC = () => {
@@ -745,8 +746,41 @@ export const AdminPanel: React.FC = () => {
                             return (
                                 <div className="space-y-6">
                                     <div className="border-b border-slate-100 pb-6">
-                                        <h3 className="text-xl font-black text-slate-900 tracking-tight">{exam?.title}</h3>
-                                        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">{exam?.topic} &bull; {examSubs.length} Intentos</p>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-xl font-black text-slate-900 tracking-tight">{exam?.title}</h3>
+                                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-2">{exam?.topic} &bull; {examSubs.length} Intentos</p>
+                                            </div>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!exam) return;
+                                                    const course = courses.find(c => c.id === exam.courseId);
+                                                    const courseName = course?.name || exam.course || 'Desconocido';
+                                                    const teacherName = users.find(u => u.uid === exam.creatorId)?.fullName || 'Desconocido';
+                                                    
+                                                    const reportData = enrichedSubs.map(sub => {
+                                                        const isApproved = (sub.score || 0) >= 3.0;
+                                                        return {
+                                                            studentName: sub.studentName,
+                                                            status: isApproved ? 'Aprobado' : 'Reprobado',
+                                                            attemptsCount: enrichedSubs.filter(s => s.studentId === sub.studentId).length,
+                                                            bestScore: sub.score,
+                                                            date: sub.submittedAt ? new Date(sub.submittedAt?.seconds ? sub.submittedAt.seconds * 1000 : sub.submittedAt).toLocaleDateString() : '-'
+                                                        };
+                                                    });
+                                                    
+                                                    try {
+                                                        await pdfService.generateExamReportPdf(courseName, exam.title, teacherName, reportData);
+                                                    } catch (e) {
+                                                        console.error(e);
+                                                        alert("Error al generar el reporte");
+                                                    }
+                                                }}
+                                                className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-brand-secondary transition-colors"
+                                            >
+                                                <Download size={14} /> Descargar Reporte
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left border-collapse">
