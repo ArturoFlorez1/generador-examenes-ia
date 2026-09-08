@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { Exam, ExamAttempt } from '../types';
 
 export const pdfService = {
@@ -334,7 +334,7 @@ export const pdfService = {
       row.date
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: currentY,
       head: [['#', 'ESTUDIANTE', 'ESTADO', 'INTENTOS', 'NOTA FINAL', 'FECHA DE ENTREGA']],
       body: tableBody,

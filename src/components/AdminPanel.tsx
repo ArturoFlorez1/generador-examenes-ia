@@ -19,7 +19,8 @@ import {
   TrendingUp,
   BookOpen,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Download
 } from 'lucide-react';
 import { collection, query, getDocs, updateDoc, doc, serverTimestamp, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';

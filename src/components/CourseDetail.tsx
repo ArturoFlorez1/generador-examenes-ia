@@ -17,7 +17,8 @@ import {
   User,
   Search,
   BookOpen,
-  Award
+  Award,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, auth } from '../lib/firebase';
